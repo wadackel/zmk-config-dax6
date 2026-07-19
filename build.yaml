@@ -1,0 +1,8 @@
+include:
+  - board: seeeduino_xiao_ble
+    shield: dax6_R rgbled_adapter
+    snippet: studio-rpc-usb-uart
+  - board: seeeduino_xiao_ble
+    shield: dax6_L rgbled_adapter
+  - board: seeeduino_xiao_ble
+    shield: settings_reset

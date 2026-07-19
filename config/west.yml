@@ -1,0 +1,26 @@
+manifest:
+  remotes:
+    - name: zmkfirmware
+      url-base: https://github.com/zmkfirmware
+    - name: caksoylar
+      url-base: https://github.com/caksoylar
+    - name: kot149
+      url-base: https://github.com/kot149
+    - name: sekigon-gonnoc
+      url-base: https://github.com/sekigon-gonnoc
+  projects:
+    - name: zmk
+      remote: zmkfirmware
+      revision: v0.3
+      import: app/west.yml
+    - name: zmk-driver-paw3222
+      remote: sekigon-gonnoc
+      revision: df652881  # Last version compatible with ZMK v0.3 (PAW3222 driver, verified 2026-06-15)
+    - name: zmk-rgbled-widget
+      remote: caksoylar
+      revision: a3510c9d  # Last version compatible with ZMK v0.3 (seeeduino_xiao_ble)
+    - name: zmk-mouse-gesture
+      remote: kot149
+      revision: v1
+  self:
+    path: config

@@ -1,0 +1,12 @@
+.git
+.github
+build/
+.west/
+modules/
+*.uf2
+*.bin
+*.hex
+*.elf
+docs/
+*.md
+.claude/
