@@ -64,7 +64,7 @@ export function BindingDock({
   argsRef.current = args
   behaviorRef.current = behaviorToken
 
-  const behavior = getBehavior(behaviorToken)
+  const behavior = getBehavior(behaviorToken, state.draft)
   const expectedArity = behavior?.arity?.[0] ?? 0
   const argTypes = behavior?.argTypes ?? []
   const argLabels = behavior?.argLabels
@@ -93,7 +93,7 @@ export function BindingDock({
   const commit = (overrideValue?: string) => {
     if (typeof overrideValue !== 'string') overrideValue = undefined
     const currentBehavior = behaviorRef.current ?? behaviorToken
-    const currentBehaviorEntry = getBehavior(currentBehavior)
+    const currentBehaviorEntry = getBehavior(currentBehavior, state.draft)
     const currentArity = currentBehaviorEntry?.arity?.[0] ?? 0
     const currentArgTypes = currentBehaviorEntry?.argTypes ?? []
     let effectiveArgs = argsRef.current ?? args
@@ -167,7 +167,7 @@ export function BindingDock({
   const onBehaviorChange = (next: string) => {
     setBehaviorToken(next)
     behaviorRef.current = next
-    const nextBehavior = getBehavior(next)
+    const nextBehavior = getBehavior(next, state.draft)
     const nextArity = nextBehavior?.arity?.[0] ?? 0
     const nextArgTypes = nextBehavior?.argTypes ?? []
     const prevArgTypes = behavior?.argTypes ?? []

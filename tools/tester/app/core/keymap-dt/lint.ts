@@ -3,6 +3,7 @@
 
 import { getBoard } from '../../boards/active'
 import { baseArityTable, LAYER_INDEX_BEHAVIORS } from '../picker/behavior-registry'
+import { defaultArityFor } from '../picker/behaviors'
 import { tokenize } from './lexer'
 import { parseKeymap, type ParsedKeymap } from './parse'
 import type { TokenKind } from './types'
@@ -67,16 +68,10 @@ export function lint(source: string): LintResult {
   // Build the set of known behaviour names: registry + custom behaviours + macros.
   const arityTable: Record<string, readonly number[]> = { ...baseArityTable() }
   for (const macro of parsed.macros) {
-    arityTable[`&${macro.name}`] = [0]
+    arityTable[`&${macro.name}`] = defaultArityFor('macro', macro)
   }
   for (const behavior of parsed.behaviors) {
-    // Custom behaviour arity = arity of one of its bindings entries if present,
-    // otherwise default to 0. (esc_lang2_with_layer is `&mo`-style => 2 args.)
-    if (behavior.bindings && behavior.bindings.length > 0) {
-      arityTable[`&${behavior.name}`] = [2]
-    } else {
-      arityTable[`&${behavior.name}`] = [0]
-    }
+    arityTable[`&${behavior.name}`] = defaultArityFor('behavior', behavior)
   }
 
   const layerCount = parsed.layers.length
