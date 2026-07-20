@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { EditorDraft } from '../editor-state/types'
+import type { BehaviorEntry, ComboEntry, MacroEntry } from './types'
 import { parseKeymap } from './parse'
 import { buildCandidateText } from './patch-container'
 
@@ -110,5 +111,129 @@ describe('buildCandidateText', () => {
     const reparsed = parseKeymap(out)
     const bh = reparsed.behaviors.find((b) => b.name === original.name)
     expect(bh?.props.some((p) => p.name === 'require-prior-idle-ms')).toBe(true)
+  })
+})
+
+// dax6 board key count = 44. Grid layout does not matter for these tests; only
+// the chain count needs to satisfy the layer serializer / parser invariants.
+const FORTY_FOUR_TRANS = '&trans '.repeat(44).trim()
+
+const KEYMAP_ONLY = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+
+        default_layer {
+            bindings = <${FORTY_FOUR_TRANS}>;
+        };
+    };
+};
+`
+
+function sampleMacro(name = 'macro_1'): MacroEntry {
+  return {
+    name,
+    bindingsList: [{ tokens: ['&macro_tap'] }],
+    props: [
+      { name: 'compatible', value: '"zmk,behavior-macro"' },
+      { name: '#binding-cells', value: '<0>' },
+    ],
+  }
+}
+
+function sampleCombo(name = 'combo_1'): ComboEntry {
+  return {
+    name,
+    bindings: { tokens: ['&kp', 'ESC'] },
+    keyPositions: [0, 1],
+    layers: [0],
+  }
+}
+
+function sampleBehavior(name = 'my_ht'): BehaviorEntry {
+  return {
+    name,
+    compatible: 'zmk,behavior-hold-tap',
+    props: [
+      { name: '#binding-cells', value: '<2>' },
+      { name: 'tapping-term-ms', value: '<200>' },
+    ],
+    bindings: [{ tokens: ['&kp'] }, { tokens: ['&kp'] }],
+  }
+}
+
+describe('buildCandidateText — insert missing containers', () => {
+  it('inserts a new macros container after keymap when source has none but draft does', () => {
+    const draft = draftFromParsed(KEYMAP_ONLY)
+    draft.macros = [sampleMacro('macro_1')]
+    const out = buildCandidateText(KEYMAP_ONLY, draft)
+    expect(out).toContain('macros {')
+    expect(out).toContain('macro_1: macro_1 {')
+    const keymapEnd = out.indexOf('keymap {')
+    const macrosStart = out.indexOf('macros {')
+    expect(macrosStart).toBeGreaterThan(keymapEnd)
+  })
+
+  it('inserts a new combos container after keymap when source has none but draft does', () => {
+    const draft = draftFromParsed(KEYMAP_ONLY)
+    draft.combos = [sampleCombo('combo_1')]
+    const out = buildCandidateText(KEYMAP_ONLY, draft)
+    expect(out).toContain('combos {')
+    expect(out).toContain('compatible = "zmk,combos";')
+    expect(out).toContain('combo_1 {')
+  })
+
+  it('inserts a new behaviors container after keymap when source has none but draft does', () => {
+    const draft = draftFromParsed(KEYMAP_ONLY)
+    draft.behaviors = [sampleBehavior('my_ht')]
+    const out = buildCandidateText(KEYMAP_ONLY, draft)
+    expect(out).toContain('behaviors {')
+    expect(out).toContain('my_ht: my_ht {')
+    expect(out).toContain('compatible = "zmk,behavior-hold-tap";')
+  })
+
+  it('inserts all three missing containers in canonical order combos → macros → behaviors', () => {
+    const draft = draftFromParsed(KEYMAP_ONLY)
+    draft.combos = [sampleCombo('combo_1')]
+    draft.macros = [sampleMacro('macro_1')]
+    draft.behaviors = [sampleBehavior('my_ht')]
+    const out = buildCandidateText(KEYMAP_ONLY, draft)
+    const combosAt = out.indexOf('combos {')
+    const macrosAt = out.indexOf('macros {')
+    const behaviorsAt = out.indexOf('behaviors {')
+    expect(combosAt).toBeGreaterThan(-1)
+    expect(macrosAt).toBeGreaterThan(-1)
+    expect(behaviorsAt).toBeGreaterThan(-1)
+    expect(combosAt).toBeLessThan(macrosAt)
+    expect(macrosAt).toBeLessThan(behaviorsAt)
+    const keymapClose = out.indexOf('};', out.indexOf('default_layer'))
+    expect(combosAt).toBeGreaterThan(keymapClose)
+  })
+
+  it('does not insert any container when the draft has no entries for the missing kinds', () => {
+    const draft = draftFromParsed(KEYMAP_ONLY)
+    const out = buildCandidateText(KEYMAP_ONLY, draft)
+    // The layer body gets normalised by serializeLayer, so the source is not
+    // byte-identical; the property we care about is that no new container was
+    // synthesised.
+    expect(out).not.toMatch(/^\s*combos \{/m)
+    expect(out).not.toMatch(/^\s*macros \{/m)
+    expect(out).not.toMatch(/^\s*behaviors \{/m)
+  })
+
+  it('round-trips inserted containers back through parseKeymap with matching entries', () => {
+    const draft = draftFromParsed(KEYMAP_ONLY)
+    draft.combos = [sampleCombo('combo_1')]
+    draft.macros = [sampleMacro('macro_1')]
+    draft.behaviors = [sampleBehavior('my_ht')]
+    const out = buildCandidateText(KEYMAP_ONLY, draft)
+    const reparsed = parseKeymap(out)
+    expect(reparsed.combos.map((c) => c.name)).toEqual(['combo_1'])
+    expect(reparsed.combos[0].bindings.tokens).toEqual(['&kp', 'ESC'])
+    expect(reparsed.combos[0].keyPositions).toEqual([0, 1])
+    expect(reparsed.combos[0].layers).toEqual([0])
+    expect(reparsed.macros.map((m) => m.name)).toEqual(['macro_1'])
+    expect(reparsed.macros[0].bindingsList).toEqual([{ tokens: ['&macro_tap'] }])
+    expect(reparsed.behaviors.map((b) => b.name)).toEqual(['my_ht'])
+    expect(reparsed.behaviors[0].compatible).toBe('zmk,behavior-hold-tap')
   })
 })

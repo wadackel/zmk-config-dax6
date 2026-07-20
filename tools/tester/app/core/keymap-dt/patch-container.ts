@@ -17,6 +17,7 @@ import {
   serializeMouseGestureBlock,
   serializeRootBehavior,
 } from './serialize'
+import type { SectionKind } from './types'
 
 const INDENT = '        ' // 8 spaces — container-body indentation for both props and entries
 
@@ -28,6 +29,7 @@ export function buildCandidateText(baseSource: string, draft: EditorDraft): stri
   patchCombosContainer(parsed, edits, draft.combos)
   patchMacrosContainer(parsed, edits, draft.macros)
   patchBehaviorsContainer(parsed, edits, draft.behaviors)
+  insertMissingContainers(parsed, edits, draft)
 
   // Mouse gesture blocks and root behaviours are rewritten section-by-section
   // because their body indent depends on the enclosing DT node — nested
@@ -89,15 +91,7 @@ export function patchCombosContainer(
 ): void {
   const container = parsed.sections.find((s) => s.kind === 'combos-container')
   if (!container) return
-  const lines: string[] = []
-  lines.push('')
-  lines.push(`${INDENT}compatible = "zmk,combos";`)
-  for (const combo of combos) {
-    lines.push('')
-    lines.push(`${INDENT}${combo.name} {${serializeCombo(combo)}};`)
-  }
-  lines.push('    ')
-  edits.push({ range: container.bodyRange, replacement: lines.join('\n') })
+  edits.push({ range: container.bodyRange, replacement: combosContainerBody(combos) })
 }
 
 export function patchMacrosContainer(
@@ -107,6 +101,32 @@ export function patchMacrosContainer(
 ): void {
   const container = parsed.sections.find((s) => s.kind === 'macros-container')
   if (!container) return
+  edits.push({ range: container.bodyRange, replacement: macrosContainerBody(macros) })
+}
+
+export function patchBehaviorsContainer(
+  parsed: ParsedKeymap,
+  edits: Edit[],
+  behaviors: EditorDraft['behaviors'],
+): void {
+  const container = parsed.sections.find((s) => s.kind === 'behaviors-container')
+  if (!container) return
+  edits.push({ range: container.bodyRange, replacement: behaviorsContainerBody(behaviors) })
+}
+
+function combosContainerBody(combos: EditorDraft['combos']): string {
+  const lines: string[] = []
+  lines.push('')
+  lines.push(`${INDENT}compatible = "zmk,combos";`)
+  for (const combo of combos) {
+    lines.push('')
+    lines.push(`${INDENT}${combo.name} {${serializeCombo(combo)}};`)
+  }
+  lines.push('    ')
+  return lines.join('\n')
+}
+
+function macrosContainerBody(macros: EditorDraft['macros']): string {
   const lines: string[] = []
   lines.push('')
   for (let i = 0; i < macros.length; i++) {
@@ -119,16 +139,10 @@ export function patchMacrosContainer(
     if (i < macros.length - 1) lines.push('')
   }
   lines.push('    ')
-  edits.push({ range: container.bodyRange, replacement: lines.join('\n') })
+  return lines.join('\n')
 }
 
-export function patchBehaviorsContainer(
-  parsed: ParsedKeymap,
-  edits: Edit[],
-  behaviors: EditorDraft['behaviors'],
-): void {
-  const container = parsed.sections.find((s) => s.kind === 'behaviors-container')
-  if (!container) return
+function behaviorsContainerBody(behaviors: EditorDraft['behaviors']): string {
   const lines: string[] = []
   lines.push('')
   for (let i = 0; i < behaviors.length; i++) {
@@ -138,5 +152,36 @@ export function patchBehaviorsContainer(
     if (i < behaviors.length - 1) lines.push('')
   }
   lines.push('    ')
-  edits.push({ range: container.bodyRange, replacement: lines.join('\n') })
+  return lines.join('\n')
+}
+
+/**
+ * Coalesces every missing-container synthesis into a single insertion edit at
+ * the byte immediately after `keymap { ... };`. `applyEdits` rejects two
+ * zero-length edits sharing a start offset, so combos / macros / behaviors
+ * cannot be pushed as three separate insertions even when all three are absent.
+ */
+function insertMissingContainers(
+  parsed: ParsedKeymap,
+  edits: Edit[],
+  draft: EditorDraft,
+): void {
+  const keymap = parsed.sections.find((s) => s.kind === 'keymap-root')
+  if (!keymap) return
+  const anchor = keymap.range[1]
+  const hasSection = (kind: SectionKind): boolean =>
+    parsed.sections.some((s) => s.kind === kind)
+
+  const pieces: string[] = []
+  if (!hasSection('combos-container') && draft.combos.length > 0) {
+    pieces.push(`\n\n    combos {${combosContainerBody(draft.combos)}};`)
+  }
+  if (!hasSection('macros-container') && draft.macros.length > 0) {
+    pieces.push(`\n\n    macros {${macrosContainerBody(draft.macros)}};`)
+  }
+  if (!hasSection('behaviors-container') && draft.behaviors.length > 0) {
+    pieces.push(`\n\n    behaviors {${behaviorsContainerBody(draft.behaviors)}};`)
+  }
+  if (pieces.length === 0) return
+  edits.push({ range: [anchor, anchor], replacement: pieces.join('') })
 }
