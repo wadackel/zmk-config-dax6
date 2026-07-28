@@ -76,6 +76,7 @@ export type EditorAction =
   | { type: 'ADD_COMBO' }
   | { type: 'UPDATE_COMBO'; index: number; combo: ComboEntry }
   | { type: 'REMOVE_COMBO'; index: number }
+  | { type: 'RENAME_COMBO'; index: number; name: string }
   | { type: 'ADD_MACRO' }
   | { type: 'UPDATE_MACRO'; index: number; macro: MacroEntry }
   | { type: 'REMOVE_MACRO'; index: number }

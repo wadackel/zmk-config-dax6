@@ -502,6 +502,22 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
         d.combos = d.combos.filter((_, i) => i !== action.index)
       })
 
+    case 'RENAME_COMBO': {
+      const { index, name } = action
+      const trimmed = name.trim()
+      if (!trimmed) return state
+      if (index < 0 || index >= state.draft.combos.length) return state
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) return state
+      const currentName = state.draft.combos[index].name
+      if (trimmed === currentName) return state
+      if (state.draft.combos.some((c, i) => i !== index && c.name === trimmed)) {
+        return state
+      }
+      return mutateDraft(state, (d) => {
+        d.combos = d.combos.map((c, i) => (i === index ? { ...c, name: trimmed } : c))
+      })
+    }
+
     case 'ADD_MACRO':
       return mutateDraft(state, (d) => {
         const next: MacroEntry = {

@@ -59,6 +59,18 @@ describe('buildCandidateText', () => {
     expect(reparsed.combos.map((c) => c.name)).toEqual(draft.combos.map((c) => c.name))
   })
 
+  it('rename combo: rewrites the DT node identifier, keeps other combos intact', () => {
+    const draft = draftFromParsed(fixture)
+    expect(draft.combos.length).toBeGreaterThan(0)
+    const original = draft.combos[0]
+    const newName = `${original.name}_renamed`
+    draft.combos = [{ ...original, name: newName }, ...draft.combos.slice(1)]
+    const out = buildCandidateText(fixture, draft)
+    expect(out).toContain(`${newName} {`)
+    const reparsed = parseKeymap(out)
+    expect(reparsed.combos.map((c) => c.name)).toEqual(draft.combos.map((c) => c.name))
+  })
+
   it('rename macro: rewrites the entry header, keeps other content intact', () => {
     const draft = draftFromParsed(fixture)
     expect(draft.macros.length).toBeGreaterThan(0)

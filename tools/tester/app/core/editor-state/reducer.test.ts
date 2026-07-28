@@ -637,6 +637,53 @@ describe('editor reducer', () => {
     })
   })
 
+  describe('RENAME_COMBO', () => {
+    function makeStateWithCombos(): EditorState {
+      let s = makeState()
+      s = reducer(s, { type: 'ADD_COMBO' })
+      s = reducer(s, { type: 'ADD_COMBO' })
+      return s
+    }
+
+    it('changes only the target combo name and records history', () => {
+      let s = makeStateWithCombos()
+      const pastBefore = s.past.length
+      s = reducer(s, { type: 'RENAME_COMBO', index: 0, name: 'chord_esc' })
+      expect(s.draft.combos[0].name).toBe('chord_esc')
+      expect(s.draft.combos[1].name).toBe('combo_2')
+      expect(s.past.length).toBe(pastBefore + 1)
+    })
+
+    it('rejects an empty / whitespace-only name', () => {
+      const s = makeStateWithCombos()
+      expect(reducer(s, { type: 'RENAME_COMBO', index: 0, name: '  ' })).toBe(s)
+    })
+
+    it('rejects an invalid DT identifier', () => {
+      const s = makeStateWithCombos()
+      expect(reducer(s, { type: 'RENAME_COMBO', index: 0, name: 'my combo' })).toBe(s)
+      expect(reducer(s, { type: 'RENAME_COMBO', index: 0, name: '9combo' })).toBe(s)
+      expect(reducer(s, { type: 'RENAME_COMBO', index: 0, name: 'has-dash' })).toBe(s)
+    })
+
+    it('rejects a duplicate combo name silently', () => {
+      const s = makeStateWithCombos()
+      const after = reducer(s, { type: 'RENAME_COMBO', index: 0, name: 'combo_2' })
+      expect(after).toBe(s)
+    })
+
+    it('is a no-op when the new name equals the current name', () => {
+      const s = makeStateWithCombos()
+      expect(reducer(s, { type: 'RENAME_COMBO', index: 0, name: 'combo_1' })).toBe(s)
+    })
+
+    it('rejects an out-of-range index', () => {
+      const s = makeStateWithCombos()
+      expect(reducer(s, { type: 'RENAME_COMBO', index: -1, name: 'x' })).toBe(s)
+      expect(reducer(s, { type: 'RENAME_COMBO', index: 5, name: 'x' })).toBe(s)
+    })
+  })
+
   describe('RENAME_MACRO', () => {
     function makeStateWithMacroRefs(): EditorState {
       const draft: EditorDraft = {
