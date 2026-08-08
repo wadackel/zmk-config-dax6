@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'hono/jsx'
+import { useEffect, useRef, useState } from 'hono/jsx'
 import { getBoard } from '../boards/active'
 import { Button } from '../ui/button'
 import { ToastProvider } from '../ui/toast'
@@ -121,10 +121,21 @@ function EditorShell() {
     }
   }, [dispatch])
 
+  // Read by the once-attached listener below through a ref: re-subscribing on
+  // `modalStack.count` changes is unsafe because hono/jsx can both invoke the
+  // same queued effect runner twice (two commits before one rAF flush — a
+  // double-attached listener dispatches UNDO twice per keypress) and replace a
+  // still-pending runner without ever running the previous cleanup.
+  const modalCountRef = useRef(0)
+  modalCountRef.current = modalStack.count
+  const undoListenerAttachedRef = useRef(false)
+
   useEffect(() => {
+    if (undoListenerAttachedRef.current) return
+    undoListenerAttachedRef.current = true
     const onKey = (e: KeyboardEvent) => {
       // Modal open → hand shortcut to the modal (it owns the focus context).
-      if (modalStack.count > 0) return
+      if ((modalCountRef.current ?? 0) > 0) return
       // Text inputs handle their own text-editing shortcut semantics.
       const target = e.target as HTMLElement | null
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
@@ -145,8 +156,11 @@ function EditorShell() {
       }
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [dispatch, modalStack.count])
+    return () => {
+      undoListenerAttachedRef.current = false
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [dispatch])
 
   // Warn on tab-close when there are unsaved edits.
   useEffect(() => {

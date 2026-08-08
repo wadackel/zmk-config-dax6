@@ -283,7 +283,14 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
     case 'SET_CLIPBOARD':
       return {
         ...state,
-        clipboard: action.chain ? { tokens: [...action.chain.tokens] } : null,
+        clipboard: action.entries
+          ? {
+              entries: action.entries.map((e) => ({
+                keyIdx: e.keyIdx,
+                chain: { tokens: [...e.chain.tokens] },
+              })),
+            }
+          : null,
       }
 
     case 'ADD_LAYER': {

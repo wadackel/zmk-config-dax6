@@ -11,6 +11,16 @@ import { BindingDock } from '../../shared/binding-dock/binding-inspector'
 import { LayerList } from './layer-list'
 import { ExportPanel } from './export-panel'
 import { DockShell } from '../../shell/dock-shell'
+import {
+  applyClickSelection,
+  commonChain,
+  DRAG_THRESHOLD_PX,
+  hitTestCells,
+  marqueeSelection,
+  normalizeRect,
+  resolvePasteEdits,
+} from './selection'
+import type { Rect } from './selection'
 
 // Monotonic per-mount token. Each LayersTab instance grabs the next value
 // from a lazy useState initializer (see below) so incrementing does not
@@ -18,13 +28,41 @@ import { DockShell } from '../../shell/dock-shell'
 // instance compare against `currentLayersInstance` before running: when
 // hono/jsx skips useEffect cleanup on conditional unmount (tab switch),
 // the old listener stays in memory but its captured token no longer
-// matches, so subsequent Cmd+C / Cmd+V events on a re-mounted Layers tab
-// only reach the newest closure.
+// matches, so subsequent keyboard / marquee events on a re-mounted Layers
+// tab only reach the newest closure.
 let layersInstanceCounter = 0
 let currentLayersInstance = 0
 
+const EMPTY_SELECTION: ReadonlySet<number> = new Set()
+
 type ContextMenuState = { x: number; y: number; keyIdx: number } | null
-type EditMode = 'edit' | 'copy'
+
+type DragState = {
+  startX: number
+  startY: number
+  additive: boolean
+  base: ReadonlySet<number>
+  active: boolean
+}
+
+// Per-render snapshot read by the window listeners through a ref. The
+// listeners themselves subscribe once per mount: re-subscribing on dep
+// changes is unsafe here because hono/jsx defers effect runners to the next
+// animation frame and replaces still-pending runners on every re-render —
+// under rapid renders (marquee mousemove updates selection continuously) a
+// replaced runner's listener never gets its cleanup registered, leaking a
+// live listener whose closure holds a mid-drag selection.
+type LayersSnapshot = {
+  exportOpen: boolean
+  contextMenu: ContextMenuState
+  selection: ReadonlySet<number>
+  hoveredKeyIdx: number | null
+  closeExport: () => void
+  clearSelection: () => void
+  setSelection: (keys: ReadonlySet<number>) => void
+  doCopy: () => void
+  doPaste: (fallbackIdx: number | null) => boolean
+}
 
 export function LayersTab() {
   const { state, dispatch } = useEditor()
@@ -33,152 +71,222 @@ export function LayersTab() {
   // a fresh token is only minted when the component actually mounts anew.
   const [instanceToken] = useState(() => ++layersInstanceCounter)
   currentLayersInstance = instanceToken
-  const [selectedKeyIdx, setSelectedKeyIdx] = useState<number | null>(null)
+  // The selection remembers which layer it belongs to and evaporates by
+  // derivation when the active layer changes. An effect clearing it on
+  // `state.activeLayerIdx` cannot be trusted here: hono/jsx defers queued
+  // effect runners to the next update cycle, so the mount-queued runner can
+  // fire long after mount and wipe a selection the user just made.
+  const [selectionState, setSelectionState] = useState<{
+    layer: number
+    keys: ReadonlySet<number>
+  }>({ layer: 0, keys: EMPTY_SELECTION })
   const [hoveredKeyIdx, setHoveredKeyIdx] = useState<number | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null)
-  const [mode, setMode] = useState<EditMode>('edit')
   const [exportOpen, setExportOpen] = useState(false)
+  const [marqueeRect, setMarqueeRect] = useState<Rect | null>(null)
   const exportChipRef = useRef<HTMLButtonElement | null>(null)
+  const boardRef = useRef<HTMLDivElement | null>(null)
+  const dragRef = useRef<DragState | null>(null)
+  const latestRef = useRef<LayersSnapshot | null>(null)
+  // A completed marquee drag ends with the browser still firing `click` on
+  // whatever sits under the pointer; this flag swallows exactly that one
+  // click so releasing over a keycap doesn't collapse the fresh selection.
+  const suppressClickRef = useRef(false)
 
   const closeExport = () => {
     setExportOpen(false)
     queueMicrotask(() => exportChipRef.current?.focus())
   }
-  // Paste-target selection used in Copy mode: click toggles membership, then
-  // Cmd/Ctrl+V commits a single bulk paste to every selected cell.
-  const [selectedKeyIdxs, setSelectedKeyIdxs] = useState<Set<number>>(new Set())
 
-  const clearSelection = () => setSelectedKeyIdxs(new Set())
-  const toggleSelected = (idx: number) =>
-    setSelectedKeyIdxs((prev) => {
-      const next = new Set(prev)
-      if (next.has(idx)) next.delete(idx)
-      else next.add(idx)
-      return next
-    })
-
-  useEffect(() => {
-    if (mode === 'edit') clearSelection()
-  }, [mode])
-  useEffect(() => {
-    clearSelection()
-    setSelectedKeyIdx(null)
-  }, [state.activeLayerIdx])
+  const selection =
+    selectionState.layer === state.activeLayerIdx ? selectionState.keys : EMPTY_SELECTION
+  const setSelection = (keys: ReadonlySet<number>) =>
+    setSelectionState({ layer: state.activeLayerIdx, keys })
+  const clearSelection = () =>
+    setSelectionState({ layer: state.activeLayerIdx, keys: EMPTY_SELECTION })
 
   const activeLayer = state.draft.layers[state.activeLayerIdx]
 
-  const doCopy = (keyIdx: number) => {
+  const sortedSelection = [...selection].sort((a, b) => a - b)
+
+  const copyEntries = (idxs: number[]) => {
     if (!activeLayer) return
-    const src = activeLayer.bindings[keyIdx]
-    if (!src) return
-    dispatch({ type: 'SET_CLIPBOARD', chain: { tokens: [...src.tokens] } })
-  }
-
-  const doPaste = (keyIdx: number) => {
-    if (!state.clipboard) return
-    dispatch({
-      type: 'UPDATE_BINDING',
-      layerIdx: state.activeLayerIdx,
-      keyIdx,
-      chain: { tokens: [...state.clipboard.tokens] },
+    const entries = idxs.flatMap((keyIdx) => {
+      const src = activeLayer.bindings[keyIdx]
+      return src ? [{ keyIdx, chain: { tokens: [...src.tokens] } }] : []
     })
+    if (entries.length === 0) return
+    dispatch({ type: 'SET_CLIPBOARD', entries })
   }
 
-  const doReset = (keyIdx: number, tokens: string[]) => {
-    dispatch({
-      type: 'UPDATE_BINDING',
-      layerIdx: state.activeLayerIdx,
-      keyIdx,
-      chain: { tokens: [...tokens] },
-    })
+  const doCopy = () => {
+    if (selection.size > 0) copyEntries(sortedSelection)
+    else if (hoveredKeyIdx !== null) copyEntries([hoveredKeyIdx])
   }
 
-  const pasteToSelection = () => {
-    if (!state.clipboard || selectedKeyIdxs.size === 0) return
-    const chain: BindingChain = { tokens: [...state.clipboard.tokens] }
+  const doPaste = (fallbackIdx: number | null) => {
+    const edits = resolvePasteEdits(state.clipboard, selection, fallbackIdx)
+    if (!edits) return false
+    dispatch({ type: 'UPDATE_BINDINGS_BULK', layerIdx: state.activeLayerIdx, edits })
+    clearSelection()
+    return true
+  }
+
+  const doReset = (tokens: string[]) => {
+    const targets = selection.size > 0 ? sortedSelection : []
+    if (targets.length === 0) return
     dispatch({
       type: 'UPDATE_BINDINGS_BULK',
       layerIdx: state.activeLayerIdx,
-      edits: Array.from(selectedKeyIdxs).map((keyIdx) => ({ keyIdx, chain })),
+      edits: targets.map((keyIdx) => ({ keyIdx, chain: { tokens: [...tokens] } })),
     })
-    clearSelection()
   }
 
+  // Rebuilt every render, so the once-per-mount listeners below always act on
+  // the current state and the freshest helper closures (including the
+  // post-Undo draft — doCopy/doPaste re-close over `state.draft` each render).
+  latestRef.current = {
+    exportOpen,
+    contextMenu,
+    selection,
+    hoveredKeyIdx,
+    closeExport,
+    clearSelection,
+    setSelection,
+    doCopy,
+    doPaste,
+  }
+
+  // hono/jsx can invoke the SAME queued effect runner twice when two commits
+  // land before one rAF flush (mount + initial LOAD render, e.g.) — the
+  // runner's callback slot is only cleared when it executes, so both commits
+  // collect it. Without this guard the window listeners below get attached
+  // twice and a single keydown is processed twice (an Esc would cancel the
+  // drag AND then clear the restored selection in one press).
+  const keyListenerAttachedRef = useRef(false)
+  const mouseListenersAttachedRef = useRef(false)
+
   useEffect(() => {
+    if (keyListenerAttachedRef.current) return
+    keyListenerAttachedRef.current = true
     const myToken = instanceToken
     const onKey = (e: KeyboardEvent) => {
       if (myToken !== currentLayersInstance) return
+      const ctx = latestRef.current
+      if (!ctx) return
       const layersActive = document
         .querySelector<HTMLElement>('[role="tab"][data-editor-tab="layers"]')
         ?.getAttribute('aria-selected') === 'true'
       if (!layersActive) return
-      if (e.key === 'Escape' && exportOpen) {
+      if (e.key === 'Escape' && ctx.exportOpen) {
         e.preventDefault()
-        closeExport()
+        ctx.closeExport()
         return
       }
-      if (
-        e.key === 'Escape' &&
-        selectedKeyIdx === null &&
-        contextMenu === null
-      ) {
-        if (selectedKeyIdxs.size > 0) {
-          e.preventDefault()
-          clearSelection()
-          return
-        }
-        if (mode === 'copy') {
-          e.preventDefault()
-          setMode('edit')
-          return
-        }
-      }
-      // Esc while Inspector is open closes the Inspector — the Inspector
-      // itself only intercepts Cmd+Enter, so top-level Esc lives here.
-      if (e.key === 'Escape' && selectedKeyIdx !== null) {
+      if (e.key === 'Escape' && dragRef.current) {
         e.preventDefault()
-        setSelectedKeyIdx(null)
+        ctx.setSelection(new Set(dragRef.current.base))
+        dragRef.current = null
+        setMarqueeRect(null)
+        return
+      }
+      // Esc while the Inspector is open clears the selection, which closes
+      // the Inspector by derivation — the Inspector itself only intercepts
+      // Cmd+Enter, so top-level Esc lives here.
+      if (e.key === 'Escape' && ctx.contextMenu === null && ctx.selection.size > 0) {
+        e.preventDefault()
+        ctx.clearSelection()
         return
       }
       if (!(e.metaKey || e.ctrlKey)) return
       if (e.key !== 'c' && e.key !== 'v') return
-      if (contextMenu !== null) return
+      if (ctx.contextMenu !== null) return
+      // Opening the dock autofocuses the keycode input, so a blanket
+      // "focused input → native copy/paste" guard would shadow ⌘C/⌘V for
+      // every active selection. Only defer to the native behavior when the
+      // user is actually working with text: a non-collapsed text selection
+      // (or any contentEditable focus). With a collapsed caret, ⌘V still
+      // falls through to native paste when the editor clipboard resolves to
+      // nothing (doPaste returns false → no preventDefault).
       const ae = document.activeElement as HTMLElement | null
-      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) {
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
+        const field = ae as HTMLInputElement | HTMLTextAreaElement
+        let collapsed = true
+        try {
+          collapsed = field.selectionStart === field.selectionEnd
+        } catch {
+          collapsed = true
+        }
+        if (!collapsed) return
+      } else if (ae?.isContentEditable) {
         return
       }
       if (e.key === 'v') {
-        if (state.clipboard && selectedKeyIdxs.size > 0) {
-          e.preventDefault()
-          pasteToSelection()
-          return
-        }
-        if (hoveredKeyIdx === null) return
-        e.preventDefault()
-        doPaste(hoveredKeyIdx)
+        if (ctx.doPaste(ctx.hoveredKeyIdx)) e.preventDefault()
       } else {
-        if (hoveredKeyIdx === null) return
+        if (ctx.selection.size === 0 && ctx.hoveredKeyIdx === null) return
         e.preventDefault()
-        doCopy(hoveredKeyIdx)
+        ctx.doCopy()
       }
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [
-    hoveredKeyIdx,
-    selectedKeyIdx,
-    contextMenu,
-    state.clipboard,
-    state.activeLayerIdx,
-    // `state.draft.layers` reference changes after Undo/Redo/SAVE_COMMIT/LOAD;
-    // without it the effect keeps a closure over the pre-Undo bindings, so
-    // Undo → hover → Cmd+C copies the wrong (post-Undo) draft's value.
-    state.draft.layers,
-    mode,
-    selectedKeyIdxs,
-    instanceToken,
-    exportOpen,
-  ])
+    return () => {
+      keyListenerAttachedRef.current = false
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [instanceToken])
+
+  useEffect(() => {
+    if (mouseListenersAttachedRef.current) return
+    mouseListenersAttachedRef.current = true
+    const myToken = instanceToken
+    // Same instance-token guard as the keydown listener above — a leaked
+    // mousemove listener firing against a stale closure is far noisier than
+    // a leaked keydown, so this guard is load-bearing here.
+    const onMove = (e: MouseEvent) => {
+      if (myToken !== currentLayersInstance) return
+      const drag = dragRef.current
+      if (!drag) return
+      if (!drag.active) {
+        const dx = e.clientX - drag.startX
+        const dy = e.clientY - drag.startY
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return
+        drag.active = true
+        suppressClickRef.current = true
+      }
+      e.preventDefault()
+      const rect = normalizeRect(
+        { x: drag.startX, y: drag.startY },
+        { x: e.clientX, y: e.clientY },
+      )
+      setMarqueeRect(rect)
+      const board = boardRef.current
+      if (!board) return
+      const cells = Array.from(board.querySelectorAll<HTMLElement>('[data-key]')).map((el) => {
+        const r = el.getBoundingClientRect()
+        return {
+          idx: Number(el.getAttribute('data-key')),
+          rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
+        }
+      })
+      latestRef.current?.setSelection(
+        marqueeSelection(drag.base, hitTestCells(rect, cells), drag.additive),
+      )
+    }
+    const onUp = () => {
+      if (myToken !== currentLayersInstance) return
+      if (!dragRef.current) return
+      dragRef.current = null
+      setMarqueeRect(null)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      mouseListenersAttachedRef.current = false
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [instanceToken])
 
   useEffect(() => {
     if (!contextMenu) return
@@ -213,15 +321,51 @@ export function LayersTab() {
     return <div class="text-fg-subtle text-sm">No layers loaded.</div>
   }
 
-  const clipboardPreview = state.clipboard?.tokens.join(' ') ?? ''
+  const clipboardEntries = state.clipboard?.entries ?? null
+  const clipboardPreview = clipboardEntries
+    ? clipboardEntries.length === 1
+      ? clipboardEntries[0].chain.tokens.join(' ')
+      : `${clipboardEntries.length} keys`
+    : ''
 
-  const onKeyCellClick = (keyIdx: number) => {
-    if (mode === 'copy') {
-      if (state.clipboard === null) doCopy(keyIdx)
-      else toggleSelected(keyIdx)
-    } else {
-      setSelectedKeyIdx(keyIdx)
+  const onBoardMouseDown = (e: MouseEvent) => {
+    if (e.button !== 0) return
+    if (contextMenu) return
+    // A drag that ended outside the board never gets its click swallowed
+    // here, so the flag could survive into the next interaction — reset it
+    // at the start of every fresh press instead of on a timer.
+    suppressClickRef.current = false
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      additive: e.shiftKey || e.metaKey || e.ctrlKey,
+      base: selection,
+      active: false,
     }
+  }
+
+  const onBoardClick = (e: MouseEvent) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
+    const target = e.target as HTMLElement | null
+    if (target?.closest('[data-key]')) return
+    if (e.shiftKey || e.metaKey || e.ctrlKey) return
+    clearSelection()
+  }
+
+  const onKeyCellClick = (e: MouseEvent, keyIdx: number) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
+    setSelection(
+      applyClickSelection(selection, keyIdx, {
+        shift: e.shiftKey,
+        toggle: e.metaKey || e.ctrlKey,
+      }),
+    )
   }
 
   const renderKeyCell = (k: KeyDef) => {
@@ -230,8 +374,7 @@ export function LayersTab() {
       ? formatBindingForCell(binding)
       : { topLine: '', mainLine: '', faint: true }
     const isHovered = hoveredKeyIdx === k.index
-    const isCopySelected = selectedKeyIdxs.has(k.index)
-    const isEditSelected = selectedKeyIdx === k.index
+    const isSelected = selection.has(k.index)
     const isTrans =
       binding && binding.tokens.length === 1 && binding.tokens[0] === '&trans'
     const isMod =
@@ -241,21 +384,15 @@ export function LayersTab() {
       binding.tokens[0] !== '&kp' &&
       binding.tokens[0] !== '&trans' &&
       binding.tokens[0] !== '&none'
-    const capState: KeyCapState = isEditSelected
+    const capState: KeyCapState = isSelected
       ? 'selected'
-      : isCopySelected
-        ? 'clip-target'
-        : isHovered
-          ? mode === 'copy'
-            ? state.clipboard
-              ? 'clip-target'
-              : 'clip-source'
-            : 'hover'
-          : isTrans
-            ? 'trans'
-            : isMod
-              ? 'mod'
-              : 'idle'
+      : isHovered
+        ? 'hover'
+        : isTrans
+          ? 'trans'
+          : isMod
+            ? 'mod'
+            : 'idle'
     const mainColor = display.faint ? 'text-fg-subtle' : 'text-fg'
     return (
       <KeyCap
@@ -265,11 +402,12 @@ export function LayersTab() {
         interactive
         class="relative"
         title={binding ? binding.tokens.join(' ') : ''}
-        onClick={() => onKeyCellClick(k.index)}
+        onClick={(e: MouseEvent) => onKeyCellClick(e, k.index)}
         onMouseEnter={() => setHoveredKeyIdx(k.index)}
         onMouseLeave={() => setHoveredKeyIdx((cur) => (cur === k.index ? null : cur))}
         onContextMenu={(e: MouseEvent) => {
           e.preventDefault()
+          if (!selection.has(k.index)) setSelection(new Set([k.index]))
           setContextMenu({ x: e.clientX, y: e.clientY, keyIdx: k.index })
         }}
       >
@@ -290,8 +428,11 @@ export function LayersTab() {
     )
   }
 
-  const selectedBinding =
-    selectedKeyIdx !== null ? activeLayer.bindings[selectedKeyIdx] : null
+  const sharedChain = commonChain(activeLayer.bindings, selection)
+  const contextTargets = selection.size > 1 ? selection.size : 1
+  const canPaste =
+    contextMenu !== null &&
+    resolvePasteEdits(state.clipboard, selection, contextMenu.keyIdx) !== null
 
   return (
     <div class="flex-1 min-h-0 min-w-0 flex flex-col bg-surface-0">
@@ -301,16 +442,18 @@ export function LayersTab() {
           <BoardHeader
             layerName={activeLayer.name}
             layerIdx={state.activeLayerIdx}
-            mode={mode}
-            onToggleMode={() => setMode((m) => (m === 'copy' ? 'edit' : 'copy'))}
             clipboardPreview={clipboardPreview}
-            selectedCount={selectedKeyIdxs.size}
-            onClearClipboard={() => dispatch({ type: 'SET_CLIPBOARD', chain: null })}
+            onClearClipboard={() => dispatch({ type: 'SET_CLIPBOARD', entries: null })}
             exportOpen={exportOpen}
             onToggleExport={() => setExportOpen((v) => !v)}
             exportChipRef={exportChipRef}
           />
-          <div class="flex-1 flex items-center justify-center px-8 py-6 min-w-0">
+          <div
+            ref={boardRef}
+            class="flex-1 flex items-center justify-center px-8 py-6 min-w-0"
+            onMouseDown={onBoardMouseDown}
+            onClick={onBoardClick}
+          >
             <KeyboardGrid keys={KEYS} renderCell={renderKeyCell} />
           </div>
         </div>
@@ -324,20 +467,34 @@ export function LayersTab() {
       </div>
 
       <DockShell ariaLabel="Layers binding editor">
-        {selectedBinding && selectedKeyIdx !== null ? (
+        {/* While a marquee drag is live the selection changes on every
+            mousemove; mounting the dock then would remount it (and its
+            autofocused keycode popover) per move — the popover also swallows
+            the first Esc, delaying drag-cancel by one keypress. Mount once,
+            after the drag settles. */}
+        {selection.size > 0 && marqueeRect === null ? (
           <BindingDock
-            key={selectedKeyIdx}
-            keyIdx={selectedKeyIdx}
-            initial={selectedBinding}
-            onCancel={() => setSelectedKeyIdx(null)}
+            key={`${state.activeLayerIdx}:${sortedSelection.join(',')}`}
+            keyIdx={selection.size === 1 ? sortedSelection[0] : -1}
+            targetLabel={selection.size > 1 ? `${selection.size} keys` : undefined}
+            targetSubtitle={
+              selection.size > 1
+                ? (sharedChain ? sharedChain.tokens.join(' ') : 'mixed bindings')
+                : undefined
+            }
+            initial={
+              selection.size === 1
+                ? (activeLayer.bindings[sortedSelection[0]] ?? { tokens: [] })
+                : (sharedChain ?? { tokens: [] })
+            }
+            onCancel={clearSelection}
             onCommit={(chain) => {
               dispatch({
-                type: 'UPDATE_BINDING',
+                type: 'UPDATE_BINDINGS_BULK',
                 layerIdx: state.activeLayerIdx,
-                keyIdx: selectedKeyIdx,
-                chain,
+                edits: sortedSelection.map((keyIdx) => ({ keyIdx, chain })),
               })
-              setSelectedKeyIdx(null)
+              clearSelection()
             }}
           />
         ) : (
@@ -345,18 +502,24 @@ export function LayersTab() {
         )}
       </DockShell>
 
+      {marqueeRect && (
+        <div
+          class="fixed z-30 border border-accent bg-[rgb(79_91_107/0.08)] pointer-events-none"
+          style={`left: ${marqueeRect.left}px; top: ${marqueeRect.top}px; width: ${marqueeRect.right - marqueeRect.left}px; height: ${marqueeRect.bottom - marqueeRect.top}px;`}
+          aria-hidden="true"
+        />
+      )}
+
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
+          targetCount={contextTargets}
           clipboardPreview={clipboardPreview}
-          canPaste={state.clipboard !== null}
-          onEdit={() => {
-            setSelectedKeyIdx(contextMenu.keyIdx)
-            setContextMenu(null)
-          }}
+          canPaste={canPaste}
+          onEdit={() => setContextMenu(null)}
           onCopy={() => {
-            doCopy(contextMenu.keyIdx)
+            copyEntries(selection.size > 0 ? sortedSelection : [contextMenu.keyIdx])
             setContextMenu(null)
           }}
           onPaste={() => {
@@ -364,11 +527,11 @@ export function LayersTab() {
             setContextMenu(null)
           }}
           onResetTrans={() => {
-            doReset(contextMenu.keyIdx, ['&trans'])
+            doReset(['&trans'])
             setContextMenu(null)
           }}
           onResetNone={() => {
-            doReset(contextMenu.keyIdx, ['&none'])
+            doReset(['&none'])
             setContextMenu(null)
           }}
         />
@@ -391,11 +554,15 @@ function DockEmptyState() {
           No key selected
         </span>
         <span class="text-[12px] text-fg-subtle leading-[1.5]">
-          Click a keycap on the board — or press{' '}
+          Click a keycap — drag or shift-click to select several and edit them
+          at once. Copy / paste a selection with{' '}
           <kbd class="inline-block px-[4px] py-[1px] font-mono font-semibold text-[10.5px] leading-none text-fg-muted bg-[rgba(22,24,29,.05)] rounded-[3px]">
-            ↵
+            ⌘C
+          </kbd>{' '}
+          <kbd class="inline-block px-[4px] py-[1px] font-mono font-semibold text-[10.5px] leading-none text-fg-muted bg-[rgba(22,24,29,.05)] rounded-[3px]">
+            ⌘V
           </kbd>
-          {' '}to edit the focused key. Copy mode lets you paste to many at once.
+          .
         </span>
       </div>
     </div>
@@ -405,10 +572,7 @@ function DockEmptyState() {
 type BoardHeaderProps = {
   layerName: string
   layerIdx: number
-  mode: EditMode
-  onToggleMode: () => void
   clipboardPreview: string
-  selectedCount: number
   onClearClipboard: () => void
   exportOpen: boolean
   onToggleExport: () => void
@@ -418,10 +582,7 @@ type BoardHeaderProps = {
 function BoardHeader({
   layerName,
   layerIdx,
-  mode,
-  onToggleMode,
   clipboardPreview,
-  selectedCount,
   onClearClipboard,
   exportOpen,
   onToggleExport,
@@ -482,37 +643,6 @@ function BoardHeader({
           </svg>
           Export image
         </button>
-        <button
-          type="button"
-          aria-pressed={mode === 'copy' ? 'true' : 'false'}
-          onClick={onToggleMode}
-          class={[
-            'inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-[12.5px] transition-colors',
-            mode === 'copy'
-              ? 'bg-accent text-accent-fg border-accent shadow-[0_1px_2px_rgb(79_91_107/0.35)]'
-              : 'bg-surface-0 border-border text-fg-muted hover:text-fg hover:bg-surface-2',
-          ].join(' ')}
-          title={
-            mode === 'copy'
-              ? 'Click to exit copy mode (Esc)'
-              : 'Click cells to copy/paste instead of opening the picker'
-          }
-        >
-          <span
-            class={[
-              'w-[11px] h-[11px] border-2 rounded-full inline-block',
-              mode === 'copy' ? 'border-accent-fg' : 'border-fg-subtle',
-            ].join(' ')}
-            aria-hidden="true"
-          />
-          {mode === 'copy'
-            ? clipboardPreview
-              ? selectedCount > 0
-                ? `Paste to ${selectedCount} · ⌘V`
-                : 'Pick targets'
-              : 'Pick source'
-            : 'Copy mode'}
-        </button>
       </div>
     </div>
   )
@@ -546,6 +676,7 @@ function Legend() {
 type ContextMenuProps = {
   x: number
   y: number
+  targetCount: number
   clipboardPreview: string
   canPaste: boolean
   onEdit: () => void
@@ -558,6 +689,7 @@ type ContextMenuProps = {
 function ContextMenu({
   x,
   y,
+  targetCount,
   clipboardPreview,
   canPaste,
   onEdit,
@@ -567,6 +699,7 @@ function ContextMenu({
   onResetNone,
 }: ContextMenuProps) {
   const stop = (e: Event) => e.stopPropagation()
+  const many = targetCount > 1
   return (
     <div
       class="fixed z-40 min-w-[240px] bg-surface-0 border border-border rounded-lg shadow-popover py-1 text-xs"
@@ -578,14 +711,18 @@ function ContextMenu({
       <MenuItem onSelect={onEdit}>Edit binding…</MenuItem>
       <div class="border-t border-border-subtle my-1" />
       <MenuItem onSelect={onCopy} shortcut="⌘C">
-        Copy binding
+        {many ? `Copy ${targetCount} bindings` : 'Copy binding'}
       </MenuItem>
       <MenuItem onSelect={onPaste} shortcut="⌘V" disabled={!canPaste}>
         {canPaste ? `Paste — ${clipboardPreview}` : 'Paste (empty)'}
       </MenuItem>
       <div class="border-t border-border-subtle my-1" />
-      <MenuItem onSelect={onResetTrans}>Reset to &amp;trans</MenuItem>
-      <MenuItem onSelect={onResetNone}>Reset to &amp;none</MenuItem>
+      <MenuItem onSelect={onResetTrans}>
+        {many ? `Reset ${targetCount} keys to &trans` : 'Reset to &trans'}
+      </MenuItem>
+      <MenuItem onSelect={onResetNone}>
+        {many ? `Reset ${targetCount} keys to &none` : 'Reset to &none'}
+      </MenuItem>
     </div>
   )
 }

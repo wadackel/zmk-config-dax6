@@ -45,10 +45,12 @@ export type EditorState = {
   activeLayerIdx: number
   /**
    * Editor-internal clipboard for cell binding chains, OS-clipboard-like.
-   * Populated by Copy on a layer cell; consumed by Paste via UPDATE_BINDING.
-   * Not persisted across page reloads; survives Save → LOAD round-trips.
+   * Each entry remembers its source keyIdx so a multi-key copy can be pasted
+   * back positionally on another layer; a single entry is broadcast to the
+   * current selection instead. Not persisted across page reloads; survives
+   * Save → LOAD round-trips.
    */
-  clipboard: BindingChain | null
+  clipboard: { entries: Array<{ keyIdx: number; chain: BindingChain }> } | null
 }
 
 export type EditorAction =
@@ -60,7 +62,7 @@ export type EditorAction =
   | { type: 'REMOVE_LAYER'; idx: number }
   | { type: 'MOVE_LAYER'; fromIdx: number; toIdx: number }
   | { type: 'RENAME_LAYER'; idx: number; name: string }
-  | { type: 'SET_CLIPBOARD'; chain: BindingChain | null }
+  | { type: 'SET_CLIPBOARD'; entries: Array<{ keyIdx: number; chain: BindingChain }> | null }
   | { type: 'UPDATE_BINDING'; layerIdx: number; keyIdx: number; chain: BindingChain }
   | {
       type: 'UPDATE_BINDINGS_BULK'

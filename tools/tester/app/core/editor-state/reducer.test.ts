@@ -359,25 +359,39 @@ describe('editor reducer', () => {
     expect(after.activeLayerIdx).toBe(0)
   })
 
-  it('SET_CLIPBOARD with a non-null chain stores a deep copy; past/future/draft unchanged', () => {
+  it('SET_CLIPBOARD with non-null entries stores deep copies; past/future/draft unchanged', () => {
     const before = { ...makeState(), past: [emptyDraft()], future: [emptyDraft()] }
     const original = before.draft
     const src: BindingChain = { tokens: ['&kp', 'A'] }
-    const after = reducer(before, { type: 'SET_CLIPBOARD', chain: src })
-    expect(after.clipboard).toEqual({ tokens: ['&kp', 'A'] })
+    const after = reducer(before, {
+      type: 'SET_CLIPBOARD',
+      entries: [
+        { keyIdx: 0, chain: src },
+        { keyIdx: 2, chain: { tokens: ['&trans'] } },
+      ],
+    })
+    expect(after.clipboard).toEqual({
+      entries: [
+        { keyIdx: 0, chain: { tokens: ['&kp', 'A'] } },
+        { keyIdx: 2, chain: { tokens: ['&trans'] } },
+      ],
+    })
     // Deep copy: mutating the source does not affect the clipboard.
     src.tokens.push('B')
-    expect(after.clipboard!.tokens).toEqual(['&kp', 'A'])
+    expect(after.clipboard!.entries[0].chain.tokens).toEqual(['&kp', 'A'])
     expect(after.draft).toBe(original)
     expect(after.past).toBe(before.past)
     expect(after.future).toBe(before.future)
   })
 
   it('SET_CLIPBOARD with null clears the clipboard (idempotent)', () => {
-    const seeded = { ...makeState(), clipboard: { tokens: ['&kp', 'A'] } }
-    const cleared = reducer(seeded, { type: 'SET_CLIPBOARD', chain: null })
+    const seeded = {
+      ...makeState(),
+      clipboard: { entries: [{ keyIdx: 0, chain: { tokens: ['&kp', 'A'] } }] },
+    }
+    const cleared = reducer(seeded, { type: 'SET_CLIPBOARD', entries: null })
     expect(cleared.clipboard).toBeNull()
-    const again = reducer(cleared, { type: 'SET_CLIPBOARD', chain: null })
+    const again = reducer(cleared, { type: 'SET_CLIPBOARD', entries: null })
     expect(again.clipboard).toBeNull()
   })
 
@@ -406,14 +420,19 @@ describe('editor reducer', () => {
   })
 
   it('LOAD preserves the clipboard across a re-load', () => {
-    const seeded = { ...makeState(), clipboard: { tokens: ['&kp', 'A'] } }
+    const seeded = {
+      ...makeState(),
+      clipboard: { entries: [{ keyIdx: 1, chain: { tokens: ['&kp', 'A'] } }] },
+    }
     const reloaded = reducer(seeded, {
       type: 'LOAD',
       source: 'new src',
       mtimeMs: 999,
       draft: emptyDraft(),
     })
-    expect(reloaded.clipboard).toEqual({ tokens: ['&kp', 'A'] })
+    expect(reloaded.clipboard).toEqual({
+      entries: [{ keyIdx: 1, chain: { tokens: ['&kp', 'A'] } }],
+    })
     // History was reset though.
     expect(reloaded.past).toEqual([])
     expect(reloaded.future).toEqual([])
@@ -424,7 +443,7 @@ describe('editor reducer', () => {
       ...makeState(),
       activeTab: 'combos',
       activeLayerIdx: 1,
-      clipboard: { tokens: ['&kp', 'A'] },
+      clipboard: { entries: [{ keyIdx: 1, chain: { tokens: ['&kp', 'A'] } }] },
     }
     const draft = {
       ...emptyDraft(),
@@ -441,7 +460,9 @@ describe('editor reducer', () => {
     })
     expect(after.activeTab).toBe('combos')
     expect(after.activeLayerIdx).toBe(1)
-    expect(after.clipboard).toEqual({ tokens: ['&kp', 'A'] })
+    expect(after.clipboard).toEqual({
+      entries: [{ keyIdx: 1, chain: { tokens: ['&kp', 'A'] } }],
+    })
   })
 
   it('SAVE_COMMIT replaces baseline and clears history', () => {
