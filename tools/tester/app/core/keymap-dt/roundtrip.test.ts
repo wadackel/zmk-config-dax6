@@ -74,11 +74,11 @@ describe('roundtrip', () => {
     const reemitted = reemitAll(fixture)
     // Should still parse without errors.
     const reparsed = parseKeymap(reemitted)
-    expect(reparsed.layers.length).toBe(8)
+    expect(reparsed.layers.length).toBe(9)
     expect(reparsed.combos.length).toBe(4)
     expect(reparsed.macros.length).toBe(1)
     expect(reparsed.behaviors.length).toBe(2)
-    expect(reparsed.mouseGestures.length).toBe(2)
+    expect(reparsed.mouseGestures.length).toBe(3)
     expect(reparsed.rootBehaviors.length).toBe(2)
   })
 
@@ -171,7 +171,7 @@ describe('roundtrip', () => {
     const reemitted = reemitAll(fixture)
     // Preprocessor directives should appear verbatim.
     expect(reemitted).toContain('#define ZMK_POINTING_DEFAULT_SCRL_VAL 120')
-    expect(reemitted).toContain('#define MAC_GESTURE 7')
+    expect(reemitted).toContain('#define MAC_GESTURE 8')
     // The combo container body around the combo-entry sections is also
     // preserved (it is outside any single combo's body).
     expect(reemitted).toContain('compatible = "zmk,combos"')

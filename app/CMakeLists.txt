@@ -1,2 +1,3 @@
-zephyr_library()
-zephyr_library_sources_ifdef(CONFIG_ZMK_OS_LAYER src/os_layer.c)
+# Compiled into the `app` target rather than a standalone zephyr_library so that
+# ZMK's own headers (zmk/ble.h, zmk/keymap.h, ...) are on the include path.
+target_sources_ifdef(CONFIG_ZMK_OS_LAYER app PRIVATE src/os_layer.c)

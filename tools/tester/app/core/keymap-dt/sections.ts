@@ -20,7 +20,9 @@ type Frame =
 // matching code change here.
 
 const MOUSE_GESTURE_REFS = new Set(['zip_mouse_gesture'])
-const MOUSE_GESTURE_NAMED_TYPES = new Set(['zip_mouse_gesture_mac'])
+// Matched by prefix rather than a name whitelist: per-OS gesture nodes get added
+// as the keymap grows, and a whitelist would silently hide them from the editor.
+const MOUSE_GESTURE_NAMED_PREFIX = 'zip_mouse_gesture_'
 
 export function detectSections(source: string): { tokens: Token[]; sections: Section[] } {
   const tokens = tokenize(source)
@@ -256,7 +258,7 @@ function tryConsumeNamedMouseGesture(
   if (colonIdx === -1 || tokens[colonIdx].kind !== 'colon') return null
   const typeIdx = skipTrivia(tokens, colonIdx + 1)
   if (typeIdx === -1 || tokens[typeIdx].kind !== 'identifier') return null
-  if (!MOUSE_GESTURE_NAMED_TYPES.has(tokens[typeIdx].value)) return null
+  if (!tokens[typeIdx].value.startsWith(MOUSE_GESTURE_NAMED_PREFIX)) return null
   const lbrace = findLBraceFrom(tokens, typeIdx + 1)
   if (lbrace === -1) return null
   const rbrace = findMatchingRBrace(tokens, lbrace)

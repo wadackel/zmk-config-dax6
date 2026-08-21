@@ -57,7 +57,7 @@ describe('lint', () => {
   })
 
   it('rejects a binding that references a layer out of range', () => {
-    // Fixture has 8 layers (0..7). Inject `&mo 99` in default_layer's first key.
+    // Fixture has 9 layers (0..8). Inject `&mo 99` in default_layer's first key.
     const broken = fixture.replace(/^&kp TAB/m, '&mo 99')
     const result = lint(broken)
     expect(result.ok).toBe(false)
@@ -69,7 +69,7 @@ describe('lint', () => {
   })
 
   it('rejects a combo whose layers entry is out of range', () => {
-    const broken = fixture.replace('layers = <0>;', 'layers = <99>;')
+    const broken = fixture.replace('layers = <0 1>;', 'layers = <99>;')
     const result = lint(broken)
     expect(result.ok).toBe(false)
     expect(result.errors.some((e) => e.message.includes('reference 99'))).toBe(true)

@@ -9,9 +9,10 @@ const fixture = readFileSync(fixturePath, 'utf8')
 describe('parseKeymap — layers', () => {
   const parsed = parseKeymap(fixture)
 
-  it('extracts all 8 layers', () => {
+  it('extracts all 9 layers', () => {
     expect(parsed.layers.map((l) => l.name)).toEqual([
       'default_layer',
+      'Android',
       'Symbol',
       'Num',
       'Function',

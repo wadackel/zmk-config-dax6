@@ -17,9 +17,9 @@ describe('parseKeymap — combos / macros / behaviors / mouse-gesture / root', (
       'to_device_right',
     ])
     const toDevice = parsed.combos[0]
-    expect(toDevice.bindings.tokens).toEqual(['&mo', '6'])
+    expect(toDevice.bindings.tokens).toEqual(['&mo', '7'])
     expect(toDevice.keyPositions).toEqual([0, 29])
-    expect(toDevice.layers).toEqual([0])
+    expect(toDevice.layers).toEqual([0, 1])
   })
 
   it('extracts the esc_lang2 macro with bindings list', () => {

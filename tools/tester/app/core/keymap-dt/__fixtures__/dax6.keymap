@@ -2,14 +2,21 @@
 
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/bt.h>
+#include <dt-bindings/zmk/input_transform.h>
 #include <dt-bindings/zmk/keys.h>
 #include <dt-bindings/zmk/pointing.h>
+#include <input/processors.dtsi>
 #include <mouse-gesture.dtsi>
 
-#define MOUSE 4
-#define SCROLL 5
-#define NUM 6
-#define MAC_GESTURE 7
+// Ctrl+Alt+Shift+Meta as a single modifier. The keycode itself is a modifier
+// usage, so it lands in the HID modifier byte and a bare tap sends no character.
+#define HYPER LC(LS(LA(LGUI)))
+
+#define ANDROID 1
+#define MOUSE 5
+#define SCROLL 6
+#define NUM 3
+#define MAC_GESTURE 8
 
 &zip_mouse_gesture {
     stroke-size = <300>;
@@ -69,6 +76,64 @@
             bindings = <&kp LG(SPACE)>;
         };
     };
+
+
+    // A layer override can never suppress movement: input_listener.c:223-225 returns 0
+    // instead of the chain's ZMK_INPUT_PROC_STOP, so `suppress-movement` only takes
+    // effect from the base chain. Renaming the Android chain's axes to RX/RY hides
+    // them from the macOS gesture node and from the base transform, which lets the
+    // Android gesture node sit in the base chain and stop the cursor for real.
+    // RX/RY never reach the host — handle_rel_code() only knows X/Y/WHEEL/HWHEEL —
+    // so the base chain has to rename them back on the way out.
+    zip_xy_to_gesture_axis: zip_xy_to_gesture_axis {
+        compatible = "zmk,input-processor-code-mapper";
+        #input-processor-cells = <0>;
+        type = <INPUT_EV_REL>;
+        map
+            = <INPUT_REL_X INPUT_REL_RX>
+            , <INPUT_REL_Y INPUT_REL_RY>
+            ;
+    };
+
+    zip_gesture_axis_to_xy: zip_gesture_axis_to_xy {
+        compatible = "zmk,input-processor-code-mapper";
+        #input-processor-cells = <0>;
+        type = <INPUT_EV_REL>;
+        map
+            = <INPUT_REL_RX INPUT_REL_X>
+            , <INPUT_REL_RY INPUT_REL_Y>
+            ;
+    };
+
+    zip_mouse_gesture_android: zip_mouse_gesture_android {
+        compatible = "zmk,input-processor-mouse-gesture";
+        #input-processor-cells = <0>;
+        event-code-x = <INPUT_REL_RX>;
+        event-code-y = <INPUT_REL_RY>;
+        stroke-size = <300>;
+        enable-eager-mode;
+        suppress-movement;
+        idle-timeout-ms = <150>;
+        gesture-cooldown-ms = <200>;
+
+        g_back {
+            pattern = <GESTURE_LEFT>;
+            bindings = <&kp C_AC_BACK>;
+        };
+    };
+};
+
+// Encoder scroll reaches the host through &msc, which owns its own input-listener.
+// The listener lives in behaviors.dtsi, which the shield overlay is parsed before,
+// so the Android direction flip has to be declared here rather than in the overlay.
+&msc_input_listener {
+    android_encoder_override {
+        layers = <ANDROID>;
+        input-processors
+            = <&zip_scroll_transform (INPUT_TRANSFORM_Y_INVERT)>
+            , <&zip_scroll_scaler 3 5>
+            ;
+    };
 };
 
 &mt {
@@ -88,27 +153,27 @@
         compatible = "zmk,combos";
 
         to_device {
-            bindings = <&mo 6>;
+            bindings = <&mo 7>;
             key-positions = <0 29>;
-            layers = <0>;
+            layers = <0 1>;
         };
 
         kl_scroll {
-            bindings = <&mo 5>;
+            bindings = <&mo 6>;
             key-positions = <20 21>;
-            layers = <0>;
+            layers = <0 1>;
         };
 
         to_device_left {
-            bindings = <&to 6>;
+            bindings = <&tog 7>;
             key-positions = <0 12 24>;
-            layers = <0>;
+            layers = <0 1>;
         };
 
         to_device_right {
-            bindings = <&to 6>;
+            bindings = <&tog 7>;
             key-positions = <11 23 37>;
-            layers = <0>;
+            layers = <0 1>;
         };
     };
 
@@ -143,9 +208,20 @@
         default_layer {
             bindings = <
 &kp TAB          &kp Q   &kp W   &kp E                &kp R                       &kp T                                                          &kp Y         &kp U   &kp I       &kp O       &kp P             &kp MINUS
-&kp LCTRL        &kp A   &kp S   &kp D                &kp F                       &kp G                                                          &kp H         &kp J   &kp K       &kp L       &lt 4 SEMICOLON   &lt 5 SINGLE_QUOTE
+&kp LCTRL        &kp A   &kp S   &kp D                &kp F                       &kp G                                                          &kp H         &kp J   &kp K       &kp L       &lt 5 SEMICOLON   &lt 6 SINGLE_QUOTE
 &kp LEFT_SHIFT   &kp Z   &kp X   &kp C                &kp V                       &kp B                    &trans                     &trans    &kp N         &kp M   &kp COMMA   &kp DOT     &kp SLASH         &mkp MB1
-                                 &kp LEFT_ALT         &mt LEFT_GUI LANG2          &mt LEFT_SHIFT SPACE     &esc_lang2_with_layer 3 0  &lt 2 ENTER   &lt 1 LANG1
+                                 &kp LEFT_ALT         &mt LEFT_GUI LANG2          &mt LEFT_SHIFT SPACE     &esc_lang2_with_layer 4 0  &lt 3 ENTER   &lt 2 LANG1
+            >;
+
+            sensor-bindings = <&enc_scroll SCRL_UP SCRL_DOWN>, <&enc_scroll SCRL_DOWN SCRL_UP>;
+        };
+
+        Android {
+            bindings = <
+&trans   &trans   &trans   &trans   &trans   &trans                                     &trans   &trans   &trans   &trans   &trans   &trans
+&trans   &trans   &trans   &trans   &trans   &trans                                     &trans   &trans   &trans   &trans   &trans   &trans
+&trans   &trans   &trans   &trans   &trans   &trans   &trans                   &trans   &trans   &trans   &trans   &trans   &trans   &trans
+                  &trans   &mt HYPER LANG2   &trans   &trans                            &trans   &trans
             >;
 
             sensor-bindings = <&enc_scroll SCRL_UP SCRL_DOWN>, <&enc_scroll SCRL_DOWN SCRL_UP>;
@@ -177,7 +253,7 @@
             bindings = <
 &kp LG(LS(N7))   &kp LG(LS(NUMBER_4))       &kp F7   &kp F8   &kp F9   &kp LG(SPACE)                                         &kp C_MUTE   &kp C_PP   &kp C_VOLUME_DOWN   &kp C_VOLUME_UP   &trans   &trans
 &trans           &kp LG(LC(LS(NUMBER_4)))   &kp F4   &kp F5   &kp F6   &kp LG(LC(SPACE))                                     &kp LEFT     &kp DOWN   &kp UP_ARROW        &kp RIGHT         &trans   &trans
-&trans           &kp F10                    &kp F1   &kp F2   &kp F3   &mo 6               &trans                   &trans   &trans       &trans     &trans              &trans            &trans   &trans
+&trans           &kp F10                    &kp F1   &kp F2   &kp F3   &mo 7               &trans                   &trans   &trans       &trans     &trans              &trans            &trans   &trans
                                             &trans   &trans   &trans   &trans                                       &trans   &trans
             >;
 
@@ -208,7 +284,7 @@
 
         Device {
             bindings = <
-&bootloader   &trans   &trans   &trans   &trans   &to 0                                      &to 0          &trans         &trans         &bt BT_CLR     &bt BT_CLR_ALL   &bootloader
+&bootloader   &trans   &trans   &trans   &trans   &tog 7                                     &tog 7         &trans         &trans         &bt BT_CLR     &bt BT_CLR_ALL   &bootloader
 &trans        &trans   &trans   &trans   &trans   &trans                                     &bt BT_SEL 0   &bt BT_SEL 1   &bt BT_SEL 2   &bt BT_SEL 3   &bt BT_SEL 4     &trans
 &trans        &trans   &trans   &trans   &trans   &trans   &trans                   &trans   &trans         &bt BT_PRV     &bt BT_NXT     &trans         &trans           &trans
                        &trans   &trans   &trans   &trans                            &trans   &trans

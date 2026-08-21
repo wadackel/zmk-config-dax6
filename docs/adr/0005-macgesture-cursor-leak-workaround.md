@@ -56,6 +56,7 @@ upstream の根治は `return 0;` を `return ret;` に変える1行修正で済
 - 実装箇所は `boards/shields/dax6/dax6_R.overlay` の `mac_gesture_override` のみ、副作用スコープは MAC_GESTURE layer に閉じる
 - ZMK v0.3 のまま運用可能、SHA pin ポリシー ([ADR-0003](./0003-pin-west-yml-revisions-to-shas.md)) と整合
 - 同種の layer_overrides + suppress-movement パターンを他 layer で使う場合、同じ workaround を末尾に足す必要がある（未来の Claude セッション向けメモ）
+- ただしこの workaround が使えるのは「そのレイヤーにいる間ずっとカーソルが死んでよい」専用 layer に限る。常時アクティブなオーバーレイ layer では [ADR-0010](./0010-ble-profile-driven-os-overlay-layer.md) の軸コード改名方式を使うこと
 
 ## Status
 

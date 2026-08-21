@@ -27,6 +27,7 @@ describe('tokenize', () => {
     const idents = tokens.filter((t) => t.kind === 'identifier').map((t) => t.value)
     for (const expected of [
       'default_layer',
+      'Android',
       'Symbol',
       'Num',
       'Function',

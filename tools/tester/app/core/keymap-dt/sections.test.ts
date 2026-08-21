@@ -12,12 +12,13 @@ function countByKind(kind: SectionKind, sections: ReturnType<typeof detectSectio
 }
 
 describe('detectSections', () => {
-  it('finds all 8 layer blocks', () => {
+  it('finds all 9 layer blocks', () => {
     const { sections } = detectSections(fixture)
     const layers = sections.filter((s) => s.kind === 'layer')
-    expect(layers.length).toBe(8)
+    expect(layers.length).toBe(9)
     expect(layers.map((s) => s.name)).toEqual([
       'default_layer',
+      'Android',
       'Symbol',
       'Num',
       'Function',
@@ -64,11 +65,13 @@ describe('detectSections', () => {
     expect(mg[0].name).toBe('zip_mouse_gesture')
   })
 
-  it('finds the named zip_mouse_gesture_mac block', () => {
+  it('finds the named zip_mouse_gesture_* blocks', () => {
     const { sections } = detectSections(fixture)
     const named = sections.filter((s) => s.kind === 'mouse-gesture-named')
-    expect(named.length).toBe(1)
-    expect(named[0].name).toBe('zip_mouse_gesture_mac')
+    expect(named.map((s) => s.name)).toEqual([
+      'zip_mouse_gesture_mac',
+      'zip_mouse_gesture_android',
+    ])
   })
 
   it('finds &mt and &lt root configs', () => {

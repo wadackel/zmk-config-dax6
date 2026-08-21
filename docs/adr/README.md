@@ -31,3 +31,4 @@ ADRは決定の凍結ポイントを残し、CLAUDE.md はその決定を反映�
 | [0007](./0007-migrate-build-env-to-nix.md) | Migrate build environment from Docker to Nix | Draft | 2026-01-25 |
 | [0008](./0008-in-house-keymap-editor.md) | In-house keymap editor (structural limitations of ZMK Studio) | Draft | 2026-06-25 |
 | [0009](./0009-migrate-from-dax3.md) | Inherit firmware assets from dax3 to bootstrap dax6 | Draft | 2026-07-20 |
+| [0010](./0010-ble-profile-driven-os-overlay-layer.md) | BLE profile driven OS overlay layer (Android) | Draft | 2026-08-21 |
