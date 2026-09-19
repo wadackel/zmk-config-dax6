@@ -38,7 +38,7 @@ nix develop --command just pristine
 
 ## ADR運用ルール
 
-`docs/adr/` に「なぜその決定に至ったか」を軽量ADRで集約する。CLAUDE.md本体（確定仕様）と `docs/encoder-tuning-learnings.md`（試行錯誤の学び）とは役割を分ける。詳細は [ADR-0001](./docs/adr/0001-adopt-adrs.md) を参照。
+`docs/adr/` に「なぜその決定に至ったか」を軽量ADRで集約する。AGENTS.md本体（確定仕様）と `docs/encoder-tuning-learnings.md`（試行錯誤の学び）とは役割を分ける。詳細は [ADR-0001](./docs/adr/0001-adopt-adrs.md) を参照。
 
 ### 起票が必須の条件
 
@@ -55,7 +55,7 @@ nix develop --command just pristine
 
 ### 起票が任意の条件
 
-以下は判断に応じてADRを起票する（数値チューニングは通常 CLAUDE.md 側で管理）:
+以下は判断に応じてADRを起票する（数値チューニングは通常 AGENTS.md 側で管理）:
 
 - 電源管理の設計値変更、外部モジュール採用、tooling 追加
 

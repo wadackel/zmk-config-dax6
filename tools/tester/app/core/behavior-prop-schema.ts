@@ -64,7 +64,7 @@ const SENSOR_ROTATE_PROPS: readonly PropSchema[] = [
   {
     name: 'tap-ms',
     kind: { type: 'int-ms', min: 16, max: 500 },
-    // CLAUDE.md rule: values below 16ms silently break scroll because that
+    // AGENTS.md rule: values below 16ms silently break scroll because that
     // is the internal event period. Enforce the floor via `min` so the
     // number spinner refuses to submit anything below it.
     label: 'Tap length',
