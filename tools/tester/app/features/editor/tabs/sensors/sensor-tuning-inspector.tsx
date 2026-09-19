@@ -34,7 +34,7 @@ export type SensorTuningDockProps = {
  *     so an Apply row would be a placeholder that adds a step users don't
  *     need to take.
  *
- * The richer per-layer summary and CLAUDE.md rule cards from the previous
+ * The richer per-layer summary and AGENTS.md rule cards from the previous
  * right-panel version were dropped because the dock is a single row — a
  * future iteration may surface them as an expandable helper panel.
  */
