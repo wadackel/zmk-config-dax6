@@ -33,3 +33,4 @@ ADRは決定の凍結ポイントを残し、AGENTS.md はその決定を反映�
 | [0009](./0009-migrate-from-dax3.md) | Inherit firmware assets from dax3 to bootstrap dax6 | Draft | 2026-07-20 |
 | [0010](./0010-ble-profile-driven-os-overlay-layer.md) | BLE profile driven OS overlay layer (Android) | Draft | 2026-08-21 |
 | [0011](./0011-dya-studio-support.md) | DYA Studio support via cormoran ZMK fork and runtime sensor rotate | Draft | 2026-10-11 |
+| [0012](./0012-migrate-to-zmk-main.md) | Migrate to ZMK main and adopt runtime settings modules | Draft | 2026-10-11 |
