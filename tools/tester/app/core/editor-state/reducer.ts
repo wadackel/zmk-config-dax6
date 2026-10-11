@@ -441,26 +441,6 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
       })
     }
 
-    case 'SWAP_SENSOR_BINDING_ARGS': {
-      const layer = state.draft.layers[action.layerIdx]
-      const perEncoder = layer?.sensorBindings?.perEncoder
-      const chain = perEncoder?.[action.encoderIdx]
-      if (!perEncoder || !chain || chain.tokens.length < 3) return state
-      return mutateDraft(state, (d) => {
-        const dLayer = d.layers[action.layerIdx]
-        const dPerEncoder = dLayer.sensorBindings!.perEncoder
-        const dChain = dPerEncoder[action.encoderIdx]
-        const nextTokens = [...dChain.tokens]
-        const tmp = nextTokens[1]!
-        nextTokens[1] = nextTokens[2]!
-        nextTokens[2] = tmp
-        const nextPerEncoder = dPerEncoder.map((b, i) =>
-          i === action.encoderIdx ? { tokens: nextTokens } : b,
-        )
-        d.layers[action.layerIdx] = { ...dLayer, sensorBindings: { perEncoder: nextPerEncoder } }
-      })
-    }
-
     case 'COPY_SENSOR_BINDINGS': {
       const src = state.draft.layers[action.fromLayerIdx]?.sensorBindings
       const dst = state.draft.layers[action.toLayerIdx]

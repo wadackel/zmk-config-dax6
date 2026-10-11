@@ -1,14 +1,16 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   checkScrlVal,
-  checkTapMs,
   checkTriggersPerRotation,
   describeEncoderRotation,
   extractScrlVal,
-  getEncScrollTapMs,
+  scrollRotateTapMs,
   shieldSteps,
   shieldTriggersPerRotation,
 } from './sensor-hints'
+import { parseKeymap } from './keymap-dt/parse'
 import type { BehaviorEntry } from './keymap-dt/types'
 
 describe('extractScrlVal', () => {
@@ -27,41 +29,77 @@ describe('extractScrlVal', () => {
   })
 })
 
-describe('getEncScrollTapMs', () => {
-  const enc: BehaviorEntry = {
-    name: 'enc_scroll',
-    compatible: '"zmk,behavior-sensor-rotate-var"',
-    props: [
-      { name: '#sensor-binding-cells', value: '<2>' },
-      { name: 'tap-ms', value: '<20>' },
-    ],
-  }
-
-  it('reads the numeric value from tap-ms prop', () => {
-    expect(getEncScrollTapMs([enc])).toBe(20)
-  })
-
-  it('returns null when enc_scroll is absent', () => {
-    expect(getEncScrollTapMs([])).toBeNull()
-  })
-
-  it('returns null when tap-ms prop is missing', () => {
-    const without = { ...enc, props: enc.props.filter((p) => p.name !== 'tap-ms') }
-    expect(getEncScrollTapMs([without])).toBeNull()
-  })
+const rsr = (name: string, props: Record<string, string>): BehaviorEntry => ({
+  name,
+  compatible: 'zmk,behavior-runtime-sensor-rotate',
+  props: [
+    { name: '#sensor-binding-cells', value: '<0>' },
+    ...Object.entries(props).map(([n, value]) => ({ name: n, value })),
+  ],
 })
 
-describe('checkTapMs', () => {
-  it('flags values below 16 as error', () => {
-    expect(checkTapMs(15).level).toBe('error')
+const scroll = rsr('rsr_scroll', {
+  'tap-ms': '<20>',
+  'cw-binding': '<&msc SCRL_UP>',
+  'ccw-binding': '<&msc SCRL_DOWN>',
+})
+const vol = rsr('rsr_vol', {
+  'cw-binding': '<&kp C_VOL_DN>',
+  'ccw-binding': '<&kp C_VOL_UP>',
+})
+
+describe('scrollRotateTapMs', () => {
+  it('reports the declared tap-ms of an &msc rotate behavior', () => {
+    expect(scrollRotateTapMs([scroll])).toEqual([
+      { name: 'rsr_scroll', index: 0, tapMs: 20, isDefault: false, hint: { level: 'ok' } },
+    ])
   })
 
-  it('accepts 16 (the msc period floor)', () => {
-    expect(checkTapMs(16).level).toBe('ok')
+  it('skips rotate behaviors that never reach &msc, keeping source indices', () => {
+    expect(scrollRotateTapMs([vol, scroll]).map((r) => [r.name, r.index])).toEqual([
+      ['rsr_scroll', 1],
+    ])
   })
 
-  it('is silent when the value is unknown', () => {
-    expect(checkTapMs(null).level).toBe('ok')
+  it('counts a behavior that uses &msc in only one direction', () => {
+    const mixed = rsr('rsr_mixed', {
+      'cw-binding': '<&kp C_VOL_UP>',
+      'ccw-binding': '<&msc SCRL_DOWN>',
+    })
+    expect(scrollRotateTapMs([mixed]).map((r) => r.name)).toEqual(['rsr_mixed'])
+  })
+
+  it('ignores other compatibles even when they carry the same props', () => {
+    const other: BehaviorEntry = { ...scroll, compatible: 'zmk,behavior-sensor-rotate' }
+    expect(scrollRotateTapMs([other])).toEqual([])
+  })
+
+  it('accepts 16 (the msc period floor) and flags 15, naming the behavior', () => {
+    const at = (ms: number) =>
+      scrollRotateTapMs([
+        rsr('rsr_x', { 'tap-ms': `<${ms}>`, 'cw-binding': '<&msc SCRL_UP>' }),
+      ])[0]!.hint
+    expect(at(16).level).toBe('ok')
+    expect(at(15).level).toBe('error')
+    expect(at(15).message).toContain('rsr_x')
+    expect(at(15).message).toContain('15ms')
+  })
+
+  it('treats a missing tap-ms as the binding default of 5 and flags it', () => {
+    const [hit] = scrollRotateTapMs([
+      rsr('rsr_unset', { 'cw-binding': '<&msc SCRL_UP>', 'ccw-binding': '<&msc SCRL_DOWN>' }),
+    ])
+    expect(hit).toMatchObject({ tapMs: 5, isDefault: true })
+    expect(hit!.hint.level).toBe('error')
+    expect(hit!.hint.message).toContain('rsr_unset')
+    expect(hit!.hint.message).toContain('unset')
+  })
+
+  it('is silent when tap-ms is not a plain integer cell', () => {
+    const [hit] = scrollRotateTapMs([
+      rsr('rsr_macro', { 'tap-ms': '<TAP_MS>', 'cw-binding': '<&msc SCRL_UP>' }),
+    ])
+    expect(hit).toMatchObject({ tapMs: null, isDefault: false, hint: { level: 'ok' } })
   })
 })
 
@@ -98,33 +136,91 @@ describe('checkTriggersPerRotation', () => {
 })
 
 describe('describeEncoderRotation', () => {
-  it('resolves msc-action args to their display labels', () => {
-    const desc = describeEncoderRotation({ tokens: ['&enc_scroll', 'SCRL_UP', 'SCRL_DOWN'] })
-    expect(desc?.behavior).toBe('&enc_scroll')
-    expect(desc?.ccw).toBe('Scroll↑')
-    expect(desc?.cw).toBe('Scroll↓')
+  it('resolves cw/ccw from the referenced behavior node', () => {
+    expect(describeEncoderRotation({ tokens: ['&rsr_scroll'] }, [vol, scroll])).toEqual({
+      behavior: '&rsr_scroll',
+      cw: { tokens: ['&msc', 'SCRL_UP'], label: 'Scroll↑' },
+      ccw: { tokens: ['&msc', 'SCRL_DOWN'], label: 'Scroll↓' },
+    })
   })
 
-  it('resolves keycode args for &inc_dec_kp', () => {
-    const desc = describeEncoderRotation({ tokens: ['&inc_dec_kp', 'C_VOL_DN', 'C_VOL_UP'] })
-    expect(desc?.ccw).toBe('Vol-')
-    expect(desc?.cw).toBe('Vol+')
+  it('resolves keycode args of &kp bindings', () => {
+    const desc = describeEncoderRotation({ tokens: ['&rsr_vol'] }, [vol, scroll])
+    expect(desc?.cw?.label).toBe('Vol-')
+    expect(desc?.ccw?.label).toBe('Vol+')
   })
 
-  it('falls back to raw token when the keycode is unknown', () => {
-    const desc = describeEncoderRotation({ tokens: ['&enc_scroll', 'UNKNOWN_A', 'UNKNOWN_B'] })
-    expect(desc?.ccw).toBe('UNKNOWN_A')
-    expect(desc?.cw).toBe('UNKNOWN_B')
+  it('falls back to the raw token when the keycode is unknown', () => {
+    const odd = rsr('rsr_odd', { 'cw-binding': '<&kp UNKNOWN_A>', 'ccw-binding': '<&kp LC(LS(TAB))>' })
+    const desc = describeEncoderRotation({ tokens: ['&rsr_odd'] }, [odd])
+    expect(desc?.cw).toEqual({ tokens: ['&kp', 'UNKNOWN_A'], label: 'UNKNOWN_A' })
+    expect(desc?.ccw).toEqual({ tokens: ['&kp', 'LC(LS(TAB))'], label: 'LC(LS(TAB))' })
   })
 
-  it('returns null for unregistered behaviours', () => {
-    const desc = describeEncoderRotation({ tokens: ['&nonexistent', 'A', 'B'] })
-    expect(desc).toBeNull()
+  it('labels an argument-less binding by its behavior', () => {
+    const half = rsr('rsr_half', { 'cw-binding': '<&none>' })
+    const desc = describeEncoderRotation({ tokens: ['&rsr_half'] }, [half])
+    expect(desc?.cw).toEqual({ tokens: ['&none'], label: 'None' })
+    expect(desc?.ccw).toBeNull()
   })
 
-  it('returns null when arity is not two', () => {
-    const desc = describeEncoderRotation({ tokens: ['&enc_scroll', 'SCRL_UP'] })
-    expect(desc).toBeNull()
+  it('returns null when the reference is not defined in the keymap', () => {
+    expect(describeEncoderRotation({ tokens: ['&rsr_missing'] }, [scroll])).toBeNull()
+  })
+
+  it('returns null for behaviors of another compatible', () => {
+    const holdTap: BehaviorEntry = { name: 'ht', compatible: 'zmk,behavior-hold-tap', props: [] }
+    expect(describeEncoderRotation({ tokens: ['&ht'] }, [holdTap])).toBeNull()
+  })
+
+  it('returns null when the sensor binding carries arguments', () => {
+    expect(describeEncoderRotation({ tokens: ['&rsr_scroll', 'SCRL_UP'] }, [scroll])).toBeNull()
+  })
+})
+
+describe('against the keymap fixture', () => {
+  const parsed = parseKeymap(
+    readFileSync(path.resolve(__dirname, 'keymap-dt/__fixtures__/dax6.keymap'), 'utf8'),
+  )
+  const labels = (layerName: string) =>
+    parsed.layers
+      .find((l) => l.name === layerName)!
+      .sensorBindings!.perEncoder.map((chain) => {
+        const desc = describeEncoderRotation(chain, parsed.behaviors)
+        return [desc?.behavior, desc?.cw?.label, desc?.ccw?.label]
+      })
+
+  it('describes every layer encoder', () => {
+    for (const layer of parsed.layers) {
+      for (const chain of layer.sensorBindings!.perEncoder) {
+        const desc = describeEncoderRotation(chain, parsed.behaviors)
+        expect(desc?.cw, `${layer.name} ${chain.tokens[0]}`).not.toBeNull()
+        expect(desc?.ccw, `${layer.name} ${chain.tokens[0]}`).not.toBeNull()
+      }
+    }
+  })
+
+  it('resolves the scroll, horizontal scroll and media assignments', () => {
+    expect(labels('default_layer')).toEqual([
+      ['&rsr_scroll', 'Scroll↑', 'Scroll↓'],
+      ['&rsr_scroll_rev', 'Scroll↓', 'Scroll↑'],
+    ])
+    expect(labels('Symbol')).toEqual([
+      ['&rsr_hscroll', 'Scroll→', 'Scroll←'],
+      ['&rsr_hscroll', 'Scroll→', 'Scroll←'],
+    ])
+    expect(labels('Num')).toEqual([
+      ['&rsr_vol', 'Vol-', 'Vol+'],
+      ['&rsr_bri', 'Brightness+', 'Brightness-'],
+    ])
+  })
+
+  it('checks tap-ms on the three &msc behaviors only, all at 20ms', () => {
+    expect(scrollRotateTapMs(parsed.behaviors).map((r) => [r.name, r.tapMs, r.hint.level])).toEqual([
+      ['rsr_scroll', 20, 'ok'],
+      ['rsr_scroll_rev', 20, 'ok'],
+      ['rsr_hscroll', 20, 'ok'],
+    ])
   })
 })
 

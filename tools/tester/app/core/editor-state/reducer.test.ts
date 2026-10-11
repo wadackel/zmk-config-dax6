@@ -28,7 +28,7 @@ function makeStateWithBindings(): EditorState {
     type: 'UPDATE_SENSOR_BINDING',
     layerIdx: 0,
     encoderIdx: 0,
-    chain: { tokens: ['&enc_scroll', 'SCRL_UP', 'SCRL_DOWN'] },
+    chain: { tokens: ['&rsr_scroll'] },
   })
 }
 
@@ -137,27 +137,6 @@ describe('editor reducer', () => {
     expect(after).toBe(before)
   })
 
-  it('SWAP_SENSOR_BINDING_ARGS swaps arg0 and arg1 while preserving the head token', () => {
-    const before = makeStateWithBindings()
-    const after = reducer(before, { type: 'SWAP_SENSOR_BINDING_ARGS', layerIdx: 0, encoderIdx: 0 })
-    expect(after.draft.layers[0].sensorBindings!.perEncoder[0].tokens).toEqual([
-      '&enc_scroll',
-      'SCRL_DOWN',
-      'SCRL_UP',
-    ])
-  })
-
-  it('SWAP_SENSOR_BINDING_ARGS is a no-op for chains with fewer than 2 args', () => {
-    const before = reducer(makeState(), {
-      type: 'UPDATE_SENSOR_BINDING',
-      layerIdx: 0,
-      encoderIdx: 0,
-      chain: { tokens: ['&trans'] },
-    })
-    const after = reducer(before, { type: 'SWAP_SENSOR_BINDING_ARGS', layerIdx: 0, encoderIdx: 0 })
-    expect(after).toBe(before)
-  })
-
   it('COPY_SENSOR_BINDINGS deep-copies the perEncoder chains into the destination', () => {
     const before = makeStateWithBindings()
     const after = reducer(before, { type: 'COPY_SENSOR_BINDINGS', fromLayerIdx: 0, toLayerIdx: 1 })
@@ -193,11 +172,7 @@ describe('editor reducer', () => {
     const before = makeStateWithBindings()
     const after = reducer(before, { type: 'APPLY_SENSOR_BINDINGS_TO_ALL', fromLayerIdx: 0 })
     for (const layer of after.draft.layers) {
-      expect(layer.sensorBindings!.perEncoder[0].tokens).toEqual([
-        '&enc_scroll',
-        'SCRL_UP',
-        'SCRL_DOWN',
-      ])
+      expect(layer.sensorBindings!.perEncoder[0].tokens).toEqual(['&rsr_scroll'])
     }
     expect(after.draft.layers[0].sensorBindings!.perEncoder[0].tokens).not.toBe(
       after.draft.layers[1].sensorBindings!.perEncoder[0].tokens,
@@ -233,17 +208,17 @@ describe('editor reducer', () => {
   })
 
   it('preserves behaviour nodeName across an edit (cloneDraft round-trip)', () => {
-    // `enc_scroll: encoder_scroll` in dax6.keymap has label≠node-name. Every edit
-    // clones the draft via cloneDraft; if the clone drops nodeName, save silently
-    // rewrites the header to `enc_scroll: enc_scroll`.
+    // A `label: node_name` header with label≠node-name. Every edit clones the
+    // draft via cloneDraft; if the clone drops nodeName, save silently rewrites
+    // the header to `label: label`.
     const draft = {
       ...emptyDraft(),
       layers: [makeLayer('default_layer', { tokens: ['&trans'] })],
       behaviors: [
         {
-          name: 'enc_scroll',
+          name: 'rsr_scroll',
           nodeName: 'encoder_scroll',
-          compatible: 'zmk,behavior-sensor-rotate-var',
+          compatible: 'zmk,behavior-runtime-sensor-rotate',
           props: [],
         },
       ],

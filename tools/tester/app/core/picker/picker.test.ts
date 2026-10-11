@@ -143,6 +143,26 @@ describe('deriveDraftBehaviors', () => {
     expect(entries[0]?.arity).toEqual([0])
   })
 
+  it('surfaces a sensor-rotate node (#sensor-binding-cells only) as argument-less', () => {
+    const entries = deriveDraftBehaviors({
+      ...emptyDraft,
+      behaviors: [
+        {
+          name: 'rsr_scroll',
+          props: [
+            { name: '#sensor-binding-cells', value: '<0>' },
+            { name: 'tap-ms', value: '<20>' },
+            { name: 'cw-binding', value: '<&msc SCRL_UP>' },
+            { name: 'ccw-binding', value: '<&msc SCRL_DOWN>' },
+          ],
+        },
+      ],
+    })
+    expect(entries).toEqual([
+      { token: '&rsr_scroll', label: 'rsr_scroll', group: 'custom', arity: [0], argTypes: [] },
+    ])
+  })
+
   it('getBehavior resolves a draft-defined macro to its arity', () => {
     const draft = {
       macros: [

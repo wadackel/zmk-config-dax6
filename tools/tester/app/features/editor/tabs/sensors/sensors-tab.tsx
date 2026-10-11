@@ -1,9 +1,11 @@
 import { useState } from 'hono/jsx'
 import { useEditor } from '../../../../core/editor-state/context'
+import { chainToString } from '../../../../core/keymap-dt/serialize'
 import type { BindingChain } from '../../../../core/keymap-dt/types'
 import {
   describeEncoderRotation,
   shieldTriggersPerRotation,
+  type RotationBinding,
 } from '../../../../core/sensor-hints'
 import { BindingDock } from '../../shared/binding-dock/binding-inspector'
 import { SensorTuningDock } from './sensor-tuning-inspector'
@@ -13,36 +15,45 @@ import { DockShell } from '../../shell/dock-shell'
 
 const ENCODER_LABELS = ['left', 'right']
 
-type EditingTarget = { encoderIdx: 0 | 1; direction: 'ccw' | 'cw' }
-
 /**
  * Sensors tab. Two-column shell + bottom dock:
  *   - Left: LayerSelectorColumn (which layer's sensor-bindings to edit)
  *   - Center: encoder pill selector + CCW card / EncoderDial / CW card
  *   - Bottom dock: SensorTuningDock by default (tuning fields);
- *     swapped for the BindingDock dock variant when CCW/CW is clicked.
+ *     swapped for the BindingDock dock variant when the assignment
+ *     button under the dial is clicked.
  *
- * The dial is decorative; interactions happen on the CCW/CW cards. Selecting
- * a layer without sensor-bindings surfaces an "Add sensor-bindings" prompt
- * (dispatches INSERT_SENSOR_BINDING so the reducer seeds `[&trans, &trans]`).
+ * A layer assigns each encoder one argument-less rotate behavior; what CW and
+ * CCW do is a property of that behavior node. The cards therefore only
+ * display the resolved `cw-binding` / `ccw-binding` (compile-time defaults
+ * that DYA Studio may override at runtime) — making them the edit target
+ * would silently change every other layer and encoder sharing the node.
+ * Those bindings are edited on the Behaviors tab.
+ *
+ * Selecting a layer without sensor-bindings surfaces an "Add sensor-bindings"
+ * prompt (dispatches INSERT_SENSOR_BINDING so the reducer seeds
+ * `[&trans, &trans]`).
  */
 export function SensorsTab() {
   const { state, dispatch } = useEditor()
   const layers = state.draft.layers
   const activeLayer = layers[state.activeLayerIdx]
   const [selectedEncoder, setSelectedEncoder] = useState<0 | 1>(0)
-  const [editing, setEditing] = useState<EditingTarget | null>(null)
+  const [editing, setEditing] = useState<0 | 1 | null>(null)
 
   const bindings = activeLayer?.sensorBindings?.perEncoder
-  const editingChain =
-    editing !== null && bindings ? bindings[editing.encoderIdx] : null
+  const editingChain = editing !== null && bindings ? bindings[editing] : null
+  const selectedChain = bindings?.[selectedEncoder] ?? null
+  const rotation = selectedChain
+    ? describeEncoderRotation(selectedChain, state.draft.behaviors)
+    : null
 
   const commitBinding = (chain: BindingChain) => {
     if (editing === null) return
     dispatch({
       type: 'UPDATE_SENSOR_BINDING',
       layerIdx: state.activeLayerIdx,
-      encoderIdx: editing.encoderIdx,
+      encoderIdx: editing,
       chain,
     })
     setEditing(null)
@@ -68,16 +79,7 @@ export function SensorsTab() {
           />
         ) : (
           <div class="flex-1 flex items-center justify-center gap-8 px-8 py-6 min-w-0 flex-wrap">
-            <RotationCard
-              direction="ccw"
-              chain={bindings[selectedEncoder]!}
-              isEditing={
-                editing?.encoderIdx === selectedEncoder && editing?.direction === 'ccw'
-              }
-              onClick={() =>
-                setEditing({ encoderIdx: selectedEncoder, direction: 'ccw' })
-              }
-            />
+            <RotationCard direction="ccw" binding={rotation?.ccw ?? null} />
 
             <div class="flex flex-col items-center gap-3">
               <EncoderDial
@@ -90,29 +92,30 @@ export function SensorsTab() {
               </span>
               <button
                 type="button"
-                onClick={() =>
-                  dispatch({
-                    type: 'SWAP_SENSOR_BINDING_ARGS',
-                    layerIdx: state.activeLayerIdx,
-                    encoderIdx: selectedEncoder,
-                  })
-                }
-                class="inline-flex items-center gap-[7px] px-[14px] py-[8px] rounded-full border border-[rgba(22,24,29,.14)] bg-white text-[12px] font-medium leading-none text-fg-muted hover:text-fg hover:bg-surface-2 transition-colors"
+                aria-label={`Change behavior for encoder ${selectedEncoder}`}
+                aria-pressed={editing === selectedEncoder ? 'true' : 'false'}
+                onClick={() => setEditing(selectedEncoder)}
+                class={[
+                  'inline-flex items-center gap-[7px] px-[14px] py-[8px] rounded-full bg-white font-mono font-semibold text-[12.5px] leading-none text-fg hover:bg-surface-2 transition-colors border box-border',
+                  editing === selectedEncoder
+                    ? 'border-[1.5px] border-accent shadow-[0_0_0_3px_rgba(79,91,107,.12)]'
+                    : 'border-[rgba(22,24,29,.14)]',
+                ].join(' ')}
               >
-                ⇄ Swap CCW / CW
+                {(selectedChain && chainToString(selectedChain)) || '—'}
+                <span class="text-[11px] leading-none text-fg-subtler" aria-hidden="true">
+                  ▾
+                </span>
               </button>
+              {!rotation && (
+                <span class="max-w-[220px] text-center text-[11px] leading-[1.5] text-warning">
+                  Not a runtime-sensor-rotate behavior defined in this keymap; CW / CCW cannot be
+                  resolved
+                </span>
+              )}
             </div>
 
-            <RotationCard
-              direction="cw"
-              chain={bindings[selectedEncoder]!}
-              isEditing={
-                editing?.encoderIdx === selectedEncoder && editing?.direction === 'cw'
-              }
-              onClick={() =>
-                setEditing({ encoderIdx: selectedEncoder, direction: 'cw' })
-              }
-            />
+            <RotationCard direction="cw" binding={rotation?.cw ?? null} />
           </div>
         )}
       </div>
@@ -122,8 +125,8 @@ export function SensorsTab() {
       <DockShell ariaLabel="Sensor tuning">
         {editing !== null && editingChain ? (
           <BindingDock
-            key={`enc-${editing.encoderIdx}-l${state.activeLayerIdx}`}
-            targetLabel={`Encoder ${editing.encoderIdx} · ${ENCODER_LABELS[editing.encoderIdx]}`}
+            key={`enc-${editing}-l${state.activeLayerIdx}`}
+            targetLabel={`Encoder ${editing} · ${ENCODER_LABELS[editing]}`}
             targetSubtitle={`layer ${state.activeLayerIdx} · ${activeLayer?.name ?? ''}`}
             initial={editingChain}
             onCancel={() => setEditing(null)}
@@ -212,31 +215,16 @@ function EmptySensorState({
 
 type RotationCardProps = {
   direction: 'ccw' | 'cw'
-  chain: BindingChain
-  isEditing: boolean
-  onClick: () => void
+  binding: RotationBinding | null
 }
 
-function RotationCard({ direction, chain, isEditing, onClick }: RotationCardProps) {
-  const desc = describeEncoderRotation(chain)
-  // arg positions per describeEncoderRotation: arg0 = CCW, arg1 = CW
-  const argToken = direction === 'ccw' ? chain.tokens[1] : chain.tokens[2]
-  const displayTokens = argToken
-    ? `${chain.tokens[0] ?? ''} ${argToken}`.trim()
-    : chain.tokens.join(' ') || '—'
-  const hint = desc ? (direction === 'ccw' ? desc.ccw : desc.cw) : ''
+function RotationCard({ direction, binding }: RotationCardProps) {
   const label = direction === 'ccw' ? 'CCW' : 'CW'
   const symbol = direction === 'ccw' ? '↺' : '↻'
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      class={[
-        'w-[212px] flex-none bg-white rounded-[9px] overflow-hidden text-left transition-shadow border box-border',
-        isEditing
-          ? 'border-[1.5px] border-accent shadow-[0_0_0_3px_rgba(79,91,107,.12)]'
-          : 'border-[rgba(22,24,29,.12)] shadow-[0_1px_2px_rgba(22,24,29,.05)] hover:shadow-md',
-      ].join(' ')}
+    <div
+      data-rotation={direction}
+      class="w-[212px] flex-none bg-white rounded-[9px] overflow-hidden text-left border border-[rgba(22,24,29,.12)] shadow-[0_1px_2px_rgba(22,24,29,.05)] box-border"
     >
       <div class="flex items-center gap-2 px-[14px] py-[12px] border-b border-[rgba(22,24,29,.07)]">
         <span class="text-[15px] font-mono font-semibold text-fg leading-none">{symbol}</span>
@@ -246,17 +234,16 @@ function RotationCard({ direction, chain, isEditing, onClick }: RotationCardProp
         </span>
       </div>
       <div class="p-[14px] flex flex-col gap-[9px]">
-        <span class="text-[10.5px] font-medium text-fg-subtle leading-none">Binding</span>
-        <span class="flex items-center justify-between px-[12px] py-[11px] border border-[rgba(22,24,29,.14)] rounded-[6px] bg-[rgba(22,24,29,.03)]">
+        <span class="text-[10.5px] font-medium text-fg-subtle leading-none">Default binding</span>
+        <span class="flex items-center px-[12px] py-[11px] border border-[rgba(22,24,29,.14)] rounded-[6px] bg-[rgba(22,24,29,.03)]">
           <span class="truncate font-mono font-semibold text-[13.5px] leading-none text-fg">
-            {displayTokens}
-          </span>
-          <span class="text-[11px] leading-none text-fg-subtler shrink-0 ml-2" aria-hidden="true">
-            ▾
+            {binding ? chainToString(binding) : '—'}
           </span>
         </span>
-        {hint && <span class="text-[11px] font-medium text-fg-subtle leading-[1.5]">{hint}</span>}
+        {binding && (
+          <span class="text-[11px] font-medium text-fg-subtle leading-[1.5]">{binding.label}</span>
+        )}
       </div>
-    </button>
+    </div>
   )
 }

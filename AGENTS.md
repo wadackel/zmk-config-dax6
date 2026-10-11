@@ -97,7 +97,7 @@ nix develop --command just pristine
 
 ### PAW3222 トラックボール
 
-R central 側に PAW3222 (PixArt) を搭載する構成。KiCad の現行 dax6 PCB にはトラックボール footprint は未実装だが、SPI0/MOTION/CS/SDIO/SCLK ネットは配線済で、後の基板改版で PAW3222 モジュールを追加する前提でファーム側は dax3 同一の SPI + input-listener チェーンを維持する。PMW3610 とは異なり、ドライバ自体は orientation / invert / scroll-layers のような Kconfig を持たず、raw `INPUT_REL_X` / `INPUT_REL_Y` のみを発行する。挙動チューニングは ZMK の input-processor チェーンで行う (`boards/shields/dax6/dax6_R.overlay`)。
+R central 側に PAW3222 (PixArt) のトラックボールを搭載している。SPI0 + MOTION 割り込みで接続し、`trackball_listener` の input-listener チェーンで処理する。PMW3610 とは異なり、ドライバ自体は orientation / invert / scroll-layers のような Kconfig を持たず、raw `INPUT_REL_X` / `INPUT_REL_Y` のみを発行する。挙動チューニングは ZMK の input-processor チェーンで行う (`boards/shields/dax6/dax6_R.overlay`)。
 
 #### 構成の全体像
 
@@ -133,13 +133,13 @@ R central 側に PAW3222 (PixArt) を搭載する構成。KiCad の現行 dax6 P
 2. base chain に `zip_mouse_gesture_android` と、その後ろの `zip_gesture_axis_to_xy`
 3. `zip_mouse_gesture_android` の `event-code-x` / `event-code-y` が `INPUT_REL_RX` / `INPUT_REL_RY`
 
-エンコーダの反転と粗さ調整は `trackball_listener` ではなく `&msc_input_listener` (`config/dax6.keymap`) 側の `android_encoder_override` が担当する。`&enc_scroll` は `&msc` に委譲し、`&msc` は自前の input-listener を持つため。`&inc_dec_kp` の音量・輝度には影響しない。
+エンコーダの反転と粗さ調整は `trackball_listener` ではなく `&msc_input_listener` (`config/dax6.keymap`) 側の `android_encoder_override` が担当する。`rsr_scroll` 系の behavior は `&msc` に委譲し、`&msc` は自前の input-listener を持つため。`&kp` を割り当てた音量・輝度には影響しない。
 
 #### エンコーダが 1 デテントで実際に送る値
 
 `ZMK_POINTING_DEFAULT_SCRL_VAL` は 1 イベントの大きさではなく **速度** で、`&msc` は `speed × trigger_period_ms ÷ 1000` を 1 ティック分の値として出す（`behavior_input_two_axis.c:136-152`、`trigger-period-ms` の既定は 16）。
 
-`120 × 16 ÷ 1000 = 1.92` に対し `enc_scroll` の `tap-ms = 20` ではティックが 1 回しか回らず、しかもリリース時に端数が捨てられる（`:139-142` の `speed == 0` で `remainder = 0`）。結果 **1 トリガあたり `REL_WHEEL = 1`、`triggers-per-rotation = 40` なので 1 デテントあたり約 1.67**。
+`120 × 16 ÷ 1000 = 1.92` に対し `rsr_scroll` 系の `tap-ms = 20` ではティックが 1 回しか回らず、しかもリリース時に端数が捨てられる（`:139-142` の `speed == 0` で `remainder = 0`）。結果 **1 トリガあたり `REL_WHEEL = 1`、`triggers-per-rotation = 40` なので 1 デテントあたり約 1.67**。
 
 Android 側はホストが 1 notch を固定量（`ViewConfiguration` の scroll factor、典型 64dp）で一括スクロールし加速もしないため、1.67 notch/デテントは「64dp と 128dp が交互」に見える。macOS は OS 側のスムージングでこれが隠れる。
 
@@ -182,11 +182,15 @@ CPI は DTS の `res-cpi` プロパティで設定 (`res-cpi = <1000>` で PMW36
 
 ```c
 // config/dax6.keymap
-enc_scroll: encoder_scroll {
+rsr_scroll: rsr_scroll {
+  compatible = "zmk,behavior-runtime-sensor-rotate";
   tap-ms = <20>;  // ✅ OK: 16ms以上
   // tap-ms = <10>;  // ❌ NG: スクロールが一切動かなくなる
+  // tap-ms を書かない  // ❌ NG: binding の既定値は 5
 };
 ```
+
+rsr の behavior は `&kp` を割り当てたもの（`rsr_vol` / `rsr_bri`）も含め、すべて `tap-ms = <20>` にする。DYA Studio は割当を変えるとき、そのレイヤーの現在の `tap_ms` を引き継いで送るので、既定 5 のままのレイヤーに後から `&msc` を割り当てると無反応になる。DYA Studio 側で `&msc` の tap を 16 未満に下げた場合も同じ。
 
 **理由:**
 - `&msc`（スクロール）の内部イベント周期は**16ms**
@@ -267,6 +271,22 @@ BLE GATT 経由の OS 識別も未実装。BLE profile ベースのマッピン�
 `zmk-rgbled-widget` の `revision: main` が更新され ZMK v0.3 互換性が壊れた可能性。
 `config/west.yml` のリビジョンを ZMK v0.3 互換の commit hash にピン留めすること。
 
+### ZMK 本体は cormoran fork（v0.3 系）
+
+`config/west.yml` の `zmk` は upstream ではなく `cormoran/zmk` の `v0.3-branch+custom-studio-protocol` を SHA で固定している。DYA Studio の拡張機能が使う custom Studio RPC を足した ZMK v0.3 で、input-listener・pointing・behaviors・ボード定義は upstream v0.3 と同じ。判断根拠は [ADR-0011](./docs/adr/0011-dya-studio-support.md)。
+
+```yaml
+- name: zmk
+  remote: cormoran
+  revision: b227a48d  # v0.3-branch+custom-studio-protocol (ZMK v0.3 + custom Studio RPC, verified 2026-10-11)
+```
+
+cormoran 製モジュールを足すときの注意:
+
+- fork には main 系（Zephyr 4.1）と v0.3 系（Zephyr 3.5）があり、モジュールの多くは main 系だけを CI している。README が v0.3 系の名前を挙げていても、HEAD が v0.3 でビルドできるとは限らない
+- `zmk-feature-custom-settings` は Kconfig の `configdefault` と `zephyr_linker_sources(ROM_SECTIONS ...)` を使うため Zephyr 3.5 ではビルドできない。これに依存するモジュール（`zmk-module-runtime-input-processor` の 2026-07-09 以降など）も同じ
+- `zmk-module-runtime-input-processor` を v0.3 で使えるのは `dbf92f76`（2026-02-24）までだが、変更通知が processor id を持たない不具合と `set_xy_swap_enabled` の fall-through が残っている
+
 ### zmk-rgbled-widget の互換性
 
 ZMK v0.3 は `seeeduino_xiao_ble` ボード名を使用する。`zmk-rgbled-widget` は
@@ -302,6 +322,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 **チェック項目:**
 1. `tap-ms`が16ms以上か？
    - → 20msに設定
+   - keymap が 20 でも、DYA Studio で保存した割当の tap が 16 未満だとそちらが優先される
 2. `SCRL_VAL`が大きすぎないか？
    - → macOSでは120以上推奨
 3. ファームウェアは左右両方フラッシュしたか？
@@ -318,6 +339,32 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 **原因:**
 - `tap-ms`が長すぎる（100msなど）
 - → 20msに設定
+
+## DYA Studio
+
+[DYA Studio](https://studio.dya.cormoran.works/) から `dax6_R` に接続すると、キー割当に加えてエンコーダーの回転割当を再ビルドなしで変更できる。対応範囲と判断根拠は [ADR-0011](./docs/adr/0011-dya-studio-support.md)。
+
+| 機能 | 状態 | 仕組み |
+|---|---|---|
+| キー割当・レイヤー | 対応 | 公式 ZMK Studio の RPC |
+| エンコーダーの回転割当（レイヤー別・方向別） | 対応 | `zmk-behavior-runtime-sensor-rotate`（`CONFIG_ZMK_RUNTIME_SENSOR_ROTATE`） |
+| トラックボール調整・マクロ・コンボ・接続先管理 | 未対応 | 対応モジュールを入れていない |
+
+### エンコーダー割当の仕組み
+
+全レイヤーの `sensor-bindings` は `zmk,behavior-runtime-sensor-rotate` の behavior（`rsr_scroll` / `rsr_scroll_rev` / `rsr_hscroll` / `rsr_vol` / `rsr_bri`）を指す。各 behavior の `cw-binding` / `ccw-binding` がコンパイル時の既定値で、DYA Studio で保存した割当があればそちらが優先される。
+
+- **DYA Studio での変更は即時に flash へ保存される。** 試してからキャンセルする操作はない
+- **保存済みの割当は keymap より強い。** keymap の `cw-binding` を書き換えてフラッシュしても、DYA Studio で一度保存したレイヤーには反映されない。既定値に戻すには `settings_reset.uf2` を書き込む（BLE のボンドも消える）
+- **`sensor-bindings` を rsr 以外の behavior にしたレイヤーは DYA Studio から編集できない。** runtime 設定は、そのレイヤーの sensor-binding が rsr に解決されるときだけ参照される
+- 回転方向ごとの既定値を keymap で変えるときは、レイヤーの `sensor-bindings` ではなく behavior ノードを編集する。ノードは複数のレイヤーで共有されている
+- `triggers-per-rotation` はコンパイル時のまま。`&msc_input_listener` の Android 反転と 3/5 倍率は `&msc` の下流なので、DYA Studio で割当を変えても効き続ける
+
+### 接続
+
+- USB（`studio-rpc-usb-uart` snippet）で Chromium 系ブラウザから接続する。`CONFIG_ZMK_STUDIO_LOCKING=n` なので unlock 操作は不要
+- BLE 経由は未検証。fork の `ZMK_STUDIO_LOCK_BLE_DIRECT_ADVERTISING_ON_UNLOCK` は LOCKING=n だと無効で、ホストと接続済みの間は広告が出ないため、Android Chrome（BLE のみ対応）からは見つからない可能性がある
+- 機体を複数つなぎ替える場合、DYA Studio の変更履歴は機体名で分かれる。`CONFIG_ZMK_KEYBOARD_NAME` を機体ごとに変えておく
 
 ## 現在のレイヤー構成
 
@@ -348,7 +395,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 
 ### ファームウェアビルド
 - `.github/workflows/build.yml` - push/PR/手動トリガーで実行
-- ZMK の reusable workflow（`zmkfirmware/zmk/.github/workflows/build-user-config.yml@v0.3.0`）を使用
+- ZMK の reusable workflow（`zmkfirmware/zmk/.github/workflows/build-user-config.yml@v0.3.0`）を使用。workflow 自体は upstream のものだが、ビルドする ZMK は `config/west.yml` が指す cormoran fork
 - ビルド対象は `build.yaml` で定義（`build.yml` と混同しないこと）
 
 ### テスター + keymap editor (tools/tester)
@@ -366,6 +413,8 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 - devicetree パーサ `app/core/keymap-dt/` が `config/dax6.keymap` を parse/serialize/lint。キー数は `app/boards/dax6/matrix.ts` の `TRANSFORM`（12/12/14/6=44、R3 は matrix cols c3..c8）に一元化。
 - **初回保存で `bindings = <…>;` の空白が canonical 整形に正規化される**（以降は round-trip 安定、`serialize.ts` ヘッダ参照）。`default_layer.grid.golden` fixture が canonical 出力を byte 単位で pin。
 - Sensors タブは `steps=80` を `triggers-per-rotation` で割り切れない場合に WARN を表示する。現行の実値 `40` は `80 % 40 = 0` の整数約数なので WARN は出ない（`24` に戻すと非整数比のため WARN が復活する）。
+- Sensors タブは `sensor-bindings` が指す rsr の behavior から CW / CCW の既定値を解決して表示する（表示専用。割当の付け替えは BindingDock、`cw-binding` / `ccw-binding` の編集は Behaviors タブ）。`&msc` を使う rsr の behavior ごとに `tap-ms` を検査し、16 未満または未指定をエラーにする。
+- editor が編集するのは keymap の既定値で、DYA Studio で保存済みの割当は上書きしない。
 - 保存後のファーム反映は手動: `nix develop --command just build-target dax6_R`。
 
 ## 参考ドキュメント
@@ -373,3 +422,4 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 - [ADR (Architecture Decision Records)](./docs/adr/README.md) - 意思決定の記録
 - [詳細な学び](./docs/encoder-tuning-learnings.md) - 試行錯誤の過程と深い理解
 - [ZMK Documentation](https://zmk.dev/)
+- [DYA Studio 開発者ガイド](https://studio.dya.cormoran.works/developer-guide)

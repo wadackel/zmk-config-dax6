@@ -30,14 +30,33 @@ describe('parseKeymap — combos / macros / behaviors / mouse-gesture / root', (
     expect(macro.bindingsList[1].tokens).toEqual(['&kp', 'ESCAPE', '&kp', 'LANG2'])
   })
 
-  it('extracts both custom behaviors', () => {
-    expect(parsed.behaviors.map((b) => b.name)).toEqual(['esc_lang2_with_layer', 'enc_scroll'])
+  it('extracts every custom behavior', () => {
+    expect(parsed.behaviors.map((b) => b.name)).toEqual([
+      'esc_lang2_with_layer',
+      'rsr_scroll',
+      'rsr_scroll_rev',
+      'rsr_hscroll',
+      'rsr_vol',
+      'rsr_bri',
+    ])
     const escLang = parsed.behaviors[0]
     expect(escLang.compatible).toBe('zmk,behavior-hold-tap')
     expect(escLang.bindings?.length).toBe(2)
     expect(escLang.bindings?.[0].tokens).toEqual(['&mo'])
     expect(escLang.bindings?.[1].tokens).toEqual(['&esc_lang2'])
     expect(escLang.props.some((p) => p.name === 'tapping-term-ms' && p.value === '<160>')).toBe(true)
+  })
+
+  it('keeps runtime-sensor-rotate rotation bindings as scalar props', () => {
+    const scroll = parsed.behaviors.find((b) => b.name === 'rsr_scroll')!
+    expect(scroll.compatible).toBe('zmk,behavior-runtime-sensor-rotate')
+    expect(scroll.bindings).toBeUndefined()
+    expect(scroll.props).toEqual([
+      { name: '#sensor-binding-cells', value: '<0>' },
+      { name: 'tap-ms', value: '<20>' },
+      { name: 'cw-binding', value: '<&msc SCRL_UP>' },
+      { name: 'ccw-binding', value: '<&msc SCRL_DOWN>' },
+    ])
   })
 
   it('extracts &zip_mouse_gesture root block with its 4 patterns', () => {

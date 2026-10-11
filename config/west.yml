@@ -2,6 +2,8 @@ manifest:
   remotes:
     - name: zmkfirmware
       url-base: https://github.com/zmkfirmware
+    - name: cormoran
+      url-base: https://github.com/cormoran
     - name: caksoylar
       url-base: https://github.com/caksoylar
     - name: kot149
@@ -10,9 +12,12 @@ manifest:
       url-base: https://github.com/sekigon-gonnoc
   projects:
     - name: zmk
-      remote: zmkfirmware
-      revision: v0.3
+      remote: cormoran
+      revision: b227a48d  # v0.3-branch+custom-studio-protocol (ZMK v0.3 + custom Studio RPC, verified 2026-10-11)
       import: app/west.yml
+    - name: zmk-behavior-runtime-sensor-rotate
+      remote: cormoran
+      revision: 8b1125ed  # main as of 2026-07-06, CI-tested against v0.3-branch+custom-studio-protocol
     - name: zmk-driver-paw3222
       remote: sekigon-gonnoc
       revision: df652881  # Last version compatible with ZMK v0.3 (PAW3222 driver, verified 2026-06-15)

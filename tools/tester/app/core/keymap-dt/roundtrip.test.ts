@@ -77,7 +77,7 @@ describe('roundtrip', () => {
     expect(reparsed.layers.length).toBe(9)
     expect(reparsed.combos.length).toBe(4)
     expect(reparsed.macros.length).toBe(1)
-    expect(reparsed.behaviors.length).toBe(2)
+    expect(reparsed.behaviors.length).toBe(6)
     expect(reparsed.mouseGestures.length).toBe(3)
     expect(reparsed.rootBehaviors.length).toBe(2)
   })
@@ -100,6 +100,7 @@ describe('roundtrip', () => {
       expect(reparsed.behaviors[i].name).toBe(original.behaviors[i].name)
       expect(reparsed.behaviors[i].compatible).toBe(original.behaviors[i].compatible)
       expect(reparsed.behaviors[i].bindings).toEqual(original.behaviors[i].bindings)
+      expect(reparsed.behaviors[i].props).toEqual(original.behaviors[i].props)
     }
   })
 

@@ -77,10 +77,10 @@ export function BindingDock({
 
   // Selection reset is owned by the callers via a `key` prop keyed on
   // the active target (e.g. Layers uses `key={selectedKeyIdx}`, Sensors
-  // uses `key={editing.encoderIdx}`), so this component only reads
+  // keys on the edited encoder), so this component only reads
   // `initial` at mount. That contract also solves the case where an
-  // external mutation (Undo/Redo, Sensors' Swap CCW/CW, bulk paste)
-  // rewrites the current target while the dock is open — remount reads
+  // external mutation (Undo/Redo, bulk paste) rewrites the current
+  // target while the dock is open — remount reads
   // the fresh `initial`; a props-to-state effect keyed on `initial`
   // would instead fight the local edits the user is composing.
 
@@ -144,7 +144,7 @@ export function BindingDock({
         : behaviorToken.replace(/^&/, '')
 
   // Scale identity-chip font-size down for longer custom-behaviour tokens
-  // (e.g. `&enc_scroll` → `enc_scroll`, 10 chars) so they read cleanly
+  // (e.g. `&rsr_scroll` → `rsr_scroll`, 10 chars) so they read cleanly
   // inside the 58×58 chip instead of overflowing at the default 20px.
   const displayCharClass =
     displayChar.length <= 3

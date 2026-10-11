@@ -42,17 +42,11 @@ describe('parseKeymap — layers', () => {
     }
   })
 
-  it('Symbol layer sensor-bindings use enc_scroll with SCRL_RIGHT/SCRL_LEFT', () => {
-    const symbol = parsed.layers.find((l) => l.name === 'Symbol')!
-    expect(symbol.sensorBindings!.perEncoder[0].tokens).toEqual([
-      '&enc_scroll',
-      'SCRL_RIGHT',
-      'SCRL_LEFT',
-    ])
-  })
-
-  it('Num layer sensor-bindings use inc_dec_kp (not enc_scroll)', () => {
-    const num = parsed.layers.find((l) => l.name === 'Num')!
-    expect(num.sensorBindings!.perEncoder[0].tokens[0]).toBe('&inc_dec_kp')
+  it('sensor-bindings are argument-less references to rotate behaviors', () => {
+    const perEncoder = (name: string) =>
+      parsed.layers.find((l) => l.name === name)!.sensorBindings!.perEncoder.map((c) => c.tokens)
+    expect(perEncoder('default_layer')).toEqual([['&rsr_scroll'], ['&rsr_scroll_rev']])
+    expect(perEncoder('Symbol')).toEqual([['&rsr_hscroll'], ['&rsr_hscroll']])
+    expect(perEncoder('Num')).toEqual([['&rsr_vol'], ['&rsr_bri']])
   })
 })

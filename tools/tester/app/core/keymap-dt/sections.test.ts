@@ -50,12 +50,18 @@ describe('detectSections', () => {
     expect(entries[0].name).toBe('esc_lang2')
   })
 
-  it('finds the behaviors container and its 2 entries', () => {
+  it('finds the behaviors container and its 6 entries', () => {
     const { sections } = detectSections(fixture)
     expect(countByKind('behaviors-container', sections)).toBe(1)
     const entries = sections.filter((s) => s.kind === 'behavior-entry')
-    expect(entries.length).toBe(2)
-    expect(entries.map((s) => s.name)).toEqual(['esc_lang2_with_layer', 'enc_scroll'])
+    expect(entries.map((s) => s.name)).toEqual([
+      'esc_lang2_with_layer',
+      'rsr_scroll',
+      'rsr_scroll_rev',
+      'rsr_hscroll',
+      'rsr_vol',
+      'rsr_bri',
+    ])
   })
 
   it('finds &zip_mouse_gesture root block', () => {

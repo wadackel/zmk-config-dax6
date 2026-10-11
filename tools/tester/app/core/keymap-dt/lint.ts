@@ -28,7 +28,7 @@ export type LintResult = {
   warnings: LintMessage[]
 }
 
-// Custom behaviours discovered from the parsed keymap (esc_lang2, enc_scroll,
+// Custom behaviours discovered from the parsed keymap (esc_lang2, rsr_scroll,
 // esc_lang2_with_layer, ...) get added at lint time on top of the shared
 // behavior-registry arities.
 

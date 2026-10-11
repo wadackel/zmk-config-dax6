@@ -72,7 +72,6 @@ export type EditorAction =
   | { type: 'UPDATE_SENSOR_BINDING'; layerIdx: number; encoderIdx: number; chain: BindingChain }
   | { type: 'INSERT_SENSOR_BINDING'; layerIdx: number }
   | { type: 'REMOVE_SENSOR_BINDING'; layerIdx: number }
-  | { type: 'SWAP_SENSOR_BINDING_ARGS'; layerIdx: number; encoderIdx: number }
   | { type: 'COPY_SENSOR_BINDINGS'; fromLayerIdx: number; toLayerIdx: number }
   | { type: 'APPLY_SENSOR_BINDINGS_TO_ALL'; fromLayerIdx: number }
   | { type: 'ADD_COMBO' }

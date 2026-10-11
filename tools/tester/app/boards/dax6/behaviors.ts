@@ -11,13 +11,5 @@ export const customs: readonly BehaviorEntry[] = [
     argLabels: ['Hold layer', 'Tap key'],
     group: 'custom',
   },
-  {
-    token: '&enc_scroll',
-    label: 'Encoder scroll var',
-    arity: [2],
-    argTypes: ['msc-action', 'msc-action'],
-    argLabels: ['CCW keycode', 'CW keycode'],
-    group: 'custom',
-  },
   { token: '&esc_lang2', label: 'Esc + LANG2 macro', arity: [0], group: 'custom' },
 ]

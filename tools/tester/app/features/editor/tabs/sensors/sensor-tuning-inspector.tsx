@@ -2,18 +2,18 @@ import { useEditor } from '../../../../core/editor-state/context'
 import type { BehaviorEntry } from '../../../../core/keymap-dt/types'
 import {
   checkScrlVal,
-  checkTapMs,
   checkTriggersPerRotation,
   extractScrlVal,
-  getEncScrollTapMs,
+  MSC_PERIOD_MS,
+  scrollRotateTapMs,
   shieldSteps,
   shieldTriggersPerRotation,
+  type HintLevel,
+  type ScrollRotateTapMs,
 } from '../../../../core/sensor-hints'
-import { Button } from '../../../../ui/button'
 import { CommittingTextInput } from '../../../../ui/field'
 import { SensorsIcon } from '../../../../ui/nav-icons'
 
-const MSC_PERIOD_MS = 16 // enc_scroll.tap-ms must be ≥ this for scroll events to fire.
 const TAP_MS_MAX = 80
 
 export type SensorTuningDockProps = {
@@ -24,15 +24,17 @@ export type SensorTuningDockProps = {
 /**
  * Bottom-dock tuning strip for the Sensors tab. Layout:
  *   - Identity (left): encoder chip + "Encoder N · left/right" + a rules
- *     status pill that aggregates the three sensor-hints checks.
+ *     status pill that aggregates the sensor-hints checks.
  *   - Fields (center): TRIGGERS-PER-ROTATION and SCRL_VAL are read-only —
  *     they live outside the keymap file (shield DTS + #define) so the
- *     dock cannot round-trip edits without touching those sources. Only
- *     TAP-MS is editable via the existing `UPDATE_BEHAVIOR` action.
- *   - Actions (right): Reset (revert TAP-MS to the MSC 16 ms floor). No
- *     Apply button — edits commit immediately on the CommittingTextInput,
- *     so an Apply row would be a placeholder that adds a step users don't
- *     need to take.
+ *     dock cannot round-trip edits without touching those sources. TAP-MS
+ *     is editable via `UPDATE_BEHAVIOR`, one field per runtime-sensor-rotate
+ *     behavior that scrolls through `&msc` — the 16 ms floor is a property
+ *     of each behavior node, not of the encoder or layer in focus.
+ *
+ * No Apply button — edits commit immediately on the CommittingTextInput,
+ * so an Apply row would be a placeholder that adds a step users don't
+ * need to take.
  *
  * The richer per-layer summary and AGENTS.md rule cards from the previous
  * right-panel version were dropped because the dock is a single row — a
@@ -42,33 +44,30 @@ export function SensorTuningDock({ encoderIdx }: SensorTuningDockProps) {
   const { state, dispatch } = useEditor()
   const behaviors = state.draft.behaviors
   const scrlVal = extractScrlVal(state.baselineSource)
-  const tapMs = getEncScrollTapMs(behaviors)
-  const encScrollIdx = behaviors.findIndex((b) => b.name === 'enc_scroll')
-  const encScrollDefined = encScrollIdx >= 0
+  const scrollTapMs = scrollRotateTapMs(behaviors)
   const activeLayer = state.draft.layers[state.activeLayerIdx]
 
-  const tapMsHint = checkTapMs(tapMs)
   const scrlValHint = checkScrlVal(scrlVal)
   const tprHint = checkTriggersPerRotation(shieldTriggersPerRotation(), shieldSteps())
-  const rulesLevel: 'ok' | 'warn' | 'error' = [tapMsHint, scrlValHint, tprHint].some(
-    (h) => h.level === 'error',
-  )
+  const hints = [...scrollTapMs.map((t) => t.hint), scrlValHint, tprHint]
+  const rulesLevel: HintLevel = hints.some((h) => h.level === 'error')
     ? 'error'
-    : [tapMsHint, scrlValHint, tprHint].some((h) => h.level === 'warn')
+    : hints.some((h) => h.level === 'warn')
       ? 'warn'
       : 'ok'
 
   const encoderLabel = encoderIdx === 0 ? 'left' : 'right'
 
-  const setTapMs = (nextMs: number) => {
-    if (encScrollIdx < 0) return
+  const setTapMs = (index: number, nextMs: number) => {
     const clamped = Math.max(MSC_PERIOD_MS, Math.min(TAP_MS_MAX, nextMs))
-    const target = behaviors[encScrollIdx]
-    const nextProps = target.props.map((p) =>
-      p.name === 'tap-ms' ? { ...p, value: `<${clamped}>` } : p,
-    )
-    const behavior: BehaviorEntry = { ...target, props: nextProps }
-    dispatch({ type: 'UPDATE_BEHAVIOR', index: encScrollIdx, behavior })
+    const target = behaviors[index]
+    const value = `<${clamped}>`
+    // A node relying on the binding default has no `tap-ms` row to rewrite.
+    const props = target.props.some((p) => p.name === 'tap-ms')
+      ? target.props.map((p) => (p.name === 'tap-ms' ? { ...p, value } : p))
+      : [...target.props, { name: 'tap-ms', value }]
+    const behavior: BehaviorEntry = { ...target, props }
+    dispatch({ type: 'UPDATE_BEHAVIOR', index, behavior })
   }
 
   return (
@@ -100,48 +99,17 @@ export function SensorTuningDock({ encoderIdx }: SensorTuningDockProps) {
           hint={tprHint.level === 'ok' ? undefined : tprHint.message}
           hintLevel={tprHint.level}
         />
-        <div class="flex flex-col gap-[6px]">
-          <span
-            class={[
-              'font-mono font-semibold text-[8.5px] leading-none uppercase tracking-[.06em]',
-              tapMsHint.level === 'error'
-                ? 'text-danger'
-                : tapMsHint.level === 'warn'
-                  ? 'text-warning'
-                  : 'text-fg-subtler',
-            ].join(' ')}
-          >
-            TAP-MS
-          </span>
-          {encScrollDefined ? (
-            <div class="flex items-center justify-between w-[104px] px-[12px] py-[8px] border border-[rgba(22,24,29,.14)] rounded-[6px] bg-white box-border">
-              <CommittingTextInput
-                type="number"
-                inputMode="numeric"
-                min={MSC_PERIOD_MS}
-                max={TAP_MS_MAX}
-                value={String(tapMs ?? MSC_PERIOD_MS)}
-                class="!w-full !min-w-0 !border-0 !bg-transparent !p-0 font-mono font-semibold !text-[13px] !leading-none text-fg !shadow-none focus:!ring-0"
-                aria-label="tap-ms"
-                aria-describedby="tap-ms-hint"
-                onCommit={(v) => {
-                  if (v === '') return
-                  setTapMs(Number(v))
-                }}
-              />
-              <span
-                id="tap-ms-hint"
-                class="text-[9.5px] font-medium leading-none text-fg-subtler ml-2 shrink-0"
-              >
-                ms
-              </span>
-            </div>
-          ) : (
-            <span class="text-[11px] text-fg-subtle italic max-w-[200px]">
-              enc_scroll undefined — create in Behaviors tab
-            </span>
-          )}
-        </div>
+        {scrollTapMs.length === 0 ? (
+          <ReadOnlyField label="TAP-MS" value="—" hintLevel="ok" />
+        ) : (
+          scrollTapMs.map((entry) => (
+            <TapMsField
+              key={entry.name}
+              entry={entry}
+              onCommit={(ms) => setTapMs(entry.index, ms)}
+            />
+          ))
+        )}
         <ReadOnlyField
           label="SCRL_VAL"
           value={scrlVal !== null ? String(scrlVal) : '—'}
@@ -150,16 +118,48 @@ export function SensorTuningDock({ encoderIdx }: SensorTuningDockProps) {
         />
       </div>
 
-      <div class="flex-none flex items-center gap-2 pl-3">
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setTapMs(MSC_PERIOD_MS)}
-          disabled={!encScrollDefined}
-        >
-          Reset
-        </Button>
+    </div>
+  )
+}
+
+function TapMsField({
+  entry,
+  onCommit,
+}: {
+  entry: ScrollRotateTapMs
+  onCommit: (ms: number) => void
+}) {
+  const inputId = `tap-ms-${entry.name}`
+  return (
+    <div class="flex flex-col gap-[6px] min-w-[104px] max-w-[150px]">
+      <label
+        htmlFor={inputId}
+        class={[
+          'font-mono font-semibold text-[8.5px] leading-none tracking-[.06em] whitespace-nowrap',
+          entry.hint.level === 'error' ? 'text-danger' : 'text-fg-subtler',
+        ].join(' ')}
+      >
+        TAP-MS · {entry.name}
+      </label>
+      <div class="flex items-center justify-between w-[104px] px-[12px] py-[8px] border border-[rgba(22,24,29,.14)] rounded-[6px] bg-white box-border">
+        <CommittingTextInput
+          id={inputId}
+          type="number"
+          inputMode="numeric"
+          min={MSC_PERIOD_MS}
+          max={TAP_MS_MAX}
+          value={entry.tapMs === null ? '' : String(entry.tapMs)}
+          class="!w-full !min-w-0 !border-0 !bg-transparent !p-0 font-mono font-semibold !text-[13px] !leading-none text-fg !shadow-none focus:!ring-0"
+          onCommit={(v) => {
+            if (v === '') return
+            onCommit(Number(v))
+          }}
+        />
+        <span class="text-[9.5px] font-medium leading-none text-fg-subtler ml-2 shrink-0">ms</span>
       </div>
+      {entry.hint.message && (
+        <span class="text-[10.5px] leading-snug text-danger">{entry.hint.message}</span>
+      )}
     </div>
   )
 }
@@ -173,7 +173,7 @@ function ReadOnlyField({
   label: string
   value: string
   hint?: string
-  hintLevel: 'ok' | 'warn' | 'error'
+  hintLevel: HintLevel
 }) {
   const labelColor =
     hintLevel === 'error'
@@ -209,7 +209,7 @@ function ReadOnlyField({
   )
 }
 
-function RulesPill({ level }: { level: 'ok' | 'warn' | 'error' }) {
+function RulesPill({ level }: { level: HintLevel }) {
   const style =
     level === 'ok'
       ? 'text-success'
