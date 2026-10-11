@@ -192,18 +192,20 @@
         };
     };
 
-    macros {
-        esc_lang2: esc_lang2 {
-            compatible = "zmk,behavior-macro";
-            #binding-cells = <0>;
-            bindings = <&macro_tap>, <&kp ESCAPE &kp LANG2>;
-        };
+    // Compile-time default for runtime macro slot 0 (`cormoran__runtime_macro`), so a
+    // settings app can edit it. A default takes the first free slot when it is first
+    // created; with this as the only default that is slot 0 after a settings reset.
+    // `esc_lang2_with_layer` passes that slot number as its tap parameter.
+    esc_lang2 {
+        compatible = "cormoran,runtime-macro-default";
+        bindings = <&macro_tap>, <&kp ESCAPE &kp LANG2>;
+        wait-ms = <15>;
     };
 
     behaviors {
         esc_lang2_with_layer: esc_lang2_with_layer {
             compatible = "zmk,behavior-hold-tap";
-            bindings = <&mo>, <&esc_lang2>;
+            bindings = <&mo>, <&rmacro>;
             #binding-cells = <2>;
             tapping-term-ms = <160>;
             flavor = "balanced";

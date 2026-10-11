@@ -328,9 +328,10 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 | エンコーダーの回転割当（レイヤー別・方向別） | `zmk-behavior-runtime-sensor-rotate`（`cormoran_rsr`） |
 | トラックボールの向き・倍率、Scroll レイヤーの向き・粗さ | `zmk-module-runtime-input-processor`（`cormoran_rip`） |
 | combo | `zmk-feature-runtime-combo`（`cormoran__runtime_combo`） |
-| マクロ（空きスロット） | `zmk-feature-runtime-macro`（`cormoran__runtime_macro`） |
+| マクロ | `zmk-feature-runtime-macro`（`cormoran__runtime_macro`） |
+| PAW3222 の CPI | `app/src/trackball_settings.c`（`dax_trackball`、値は custom-settings 経由） |
 
-実行時に変えられないもの: PAW3222 の CPI、エンコーダーの `triggers-per-rotation`、マウスジェスチャーの調整値とパターン、hold-tap のタイミング、既存のマクロ `esc_lang2`。
+実行時に変えられないもの: エンコーダーの `triggers-per-rotation`、マウスジェスチャーの調整値とパターン、hold-tap のタイミング。
 
 共通の約束事:
 
@@ -349,8 +350,8 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 ### combo とマクロ
 
 - combo は `config/dax6.keymap` の `runtime_combo_defaults`（`cormoran,runtime-combo-defaults`）に書く。`zmk,combos` のノードは無い。レイヤーの絞り込みが「最上位のアクティブレイヤー 1 つ」しか見ない点は変わらないので、`layers = <0 1>` と書く
-- マクロ `esc_lang2` は `zmk,behavior-macro` のまま。実行時マクロの既定値はスロット番号をビルド時に決められず、`&rmacro <slot>` の番号がずれるとキーが壊れるため
-- 実行時マクロは `&rmacro <slot>` で呼ぶ。スロット番号はアプリの一覧で確かめる
+- マクロは実行時マクロ（`&rmacro <slot>`）で、`zmk,behavior-macro` のノードは無い。`esc_lang2` は `cormoran,runtime-macro-default` の既定値で、`esc_lang2_with_layer` の tap 側が `&rmacro` を呼ぶ。keymap の `&esc_lang2_with_layer 4 0` の `0` がスロット番号
+- **既定値のスロット番号はビルド時に決まらない。** 最初に作られたときの空きスロットに入る。既定値が `esc_lang2` だけなら settings reset の直後はスロット 0 に入る想定。既定値のマクロを足したり、settings reset をしたりしたあとは、アプリのマクロ一覧で `esc_lang2` の番号を確かめる。ずれていると ESC / LANG2 のキーが効かない
 
 ### エンコーダー割当の仕組み
 
