@@ -43,13 +43,15 @@ ZMK_TESTS_RESYNC=1 just test    # west update のあと
 | `esc-lang2` | 親指キーの tap が ESC → LANG2 を出し、hold がレイヤーを切り替える（実行時マクロの既定値がスロット 0 に入る） |
 | `combos` | 実行時 combo の既定値が発火する。`layers = <0 1>` の combo は上のレイヤーが有効でも発火し、`<0>` だけのものは発火しない |
 | `trackball-pointer` / `-fixed` | `tb_pointer` の出力が、置き換え前の `zip_xy_transform (XY_SWAP \| Y_INVERT)` と同じ |
+| `gestures` | `config/gestures.dtsi` の組が、保持しているレイヤーに応じて切り替わる（Gesture → 戻る、MacGesture → Spotlight、Gesture + Android → Android の戻る、何も保持しない → カーソル移動） |
 | `trackball-scroll` / `-fixed` | Scroll レイヤーの出力が、置き換え前の固定の処理と同じ（端数の持ち越しを含む） |
 
 - Docker が要る。ホストのディレクトリをコンテナに見せない設定でも動くよう、ワークスペースを Docker のボリューム（`dax6-zmk-tests`）に写してから実行する。Zephyr と `modules/` は初回だけ写す
 - `-fixed` の 2 件は比較の基準で、対になるテストと期待値が同じであることに意味がある
 - `trackball_processors.dtsi` は shield の overlay とテストの両方から読む。テストが見ているのは実機と同じ定義
 - 模擬キー入力（`ZMK_MOCK_PRESS(row, col, ms)`）の `ms` は「次のイベントまでの間隔」。最初のイベントの前にも同じ時間だけ待つ
-- マウスジェスチャーと BLE プロファイル連動のレイヤーは、まだテストが無い
+- BLE プロファイル連動のレイヤーは、まだテストが無い
+- ジェスチャーの認識そのもののテストは `zmk-dax-modules` 側にある（PC 上の単体テストと native_sim）
 
 ## ディレクトリ構造
 
@@ -126,37 +128,35 @@ R central 側に PAW3222 (PixArt) のトラックボールを搭載している�
 
 #### 構成の全体像
 
-`trackball_listener` (`zmk,input-listener`) の input-processors チェーン:
+`trackball_listener` (`zmk,input-listener`) の input-processors チェーン（`boards/shields/dax6/dax6_R.overlay`）:
 
-`tb_pointer` と `tb_scroll` は実行時に調整できる処理（`zmk,input-processor-runtime`、後述）。`WHEEL_INV` は `(INPUT_TRANSFORM_Y_INVERT)` の略記。
-
-- **base chain**: `<&tb_pointer>, <&zip_mouse_gesture>, <&zip_mouse_gesture_android>, <&zip_gesture_axis_to_xy>`
-  - 物理方向 → ユーザ視点方向への補正を最初に通し、その後マウスジェスチャを判定する
-  - ジェスチャノードが 2 つ並ぶのは、`suppress-movement`（= `ZMK_INPUT_PROC_STOP`）が base chain でしか伝搬しないため。macOS 用は X/Y、Android 用は RX/RY を読むので互いのイベントを見ない
-  - 末尾の `zip_gesture_axis_to_xy` は Android chain の RX/RY を X/Y に戻す。`handle_rel_code()` は X/Y/WHEEL/HWHEEL しか扱わないので、戻さないと HID に何も出ない
-- **scroll_override** (Scroll レイヤー = 6): `<&tb_pointer>, <&zip_xy_to_scroll_mapper>, <&tb_scroll>`
-  - `zip_xy_to_scroll_mapper` が X→HWHEEL, Y→WHEEL に変換 (PMW3610 の `scroll-layers` 相当)
+- **base chain**: `<&tb_pointer>, <&dax_gestures>`
+  - `tb_pointer` が物理方向 → ユーザ視点方向への補正と倍率を担う（実行時に調整できる。定義は `trackball_processors.dtsi`）
+  - `dax_gestures` がマウスジェスチャーを判定する（定義は `config/gestures.dtsi`、モジュールは `zmk-dax-modules`）
+- **scroll_override** (Scroll レイヤー = 6、`process-next` 付き): `<&tb_pointer>, <&zip_xy_to_scroll_mapper>, <&tb_scroll>`
+  - `zip_xy_to_scroll_mapper` が X→HWHEEL, Y→WHEEL に変換する
   - `tb_scroll` が向きの反転と粗さ（既定 1/64、分母が大きいほどゆっくり）を担う
-  - `process-next` 付き。Android レイヤーが同時にアクティブなときに下の `android_override` へ WHEEL を渡すため
-- **mac_gesture_override** (MacGesture レイヤー = 8): `<&tb_pointer>, <&zip_mouse_gesture_mac>, <&zip_xy_scaler 0 1>`
-  - `zip_xy_scaler 0 1` はカーソル移動を 0 倍にして止める ([ADR-0005](./docs/adr/0005-macgesture-cursor-leak-workaround.md))
-- **android_override** (Android レイヤー = 1、**必ず最後に宣言する**、`process-next` 付き): `<&zip_scroll_transform WHEEL_INV>, <&tb_pointer>, <&zip_xy_to_gesture_axis>`
-  - override は宣言順に評価され、最初にマッチしたものが `process-next` なしなら base ごと打ち切る。Android レイヤーは常時アクティブなので、最後に置かないと Scroll / MacGesture を飲み込む
-  - 先頭の `zip_scroll_transform` は Scroll レイヤー経由で来た WHEEL を反転する。通常の X/Y イベントには無反応
-  - 末尾で X/Y を RX/RY に改名し、`process-next` で base chain に渡す。これで base の `zip_xy_transform` が二重適用されず、macOS 用ジェスチャノードも Android のイベントを見ない
+- **android_override** (Android レイヤー = 1、**必ず最後に宣言する**、`process-next` 付き): `<&zip_scroll_transform WHEEL_INV>`
+  - Scroll レイヤー経由で来た WHEEL を反転するだけ。通常の X/Y イベントには無反応
+  - override は宣言順に評価され、最初にマッチしたものが `process-next` なしなら base ごと打ち切る。Android レイヤーは常時アクティブなので、最後に置かないと Scroll を飲み込む
 
-#### ジェスチャ中のカーソル停止
+`WHEEL_INV` は `(INPUT_TRANSFORM_Y_INVERT)` の略記。
 
-`zmk,input-listener` の layer override は、チェーンが返した `ZMK_INPUT_PROC_STOP` を `process-next` の有無に関わらず握り潰す（`input_listener.c:228-233` が `ret` ではなく `0` を返す）。**`suppress-movement` は base chain に置いたノードでしか効かない。**
+#### マウスジェスチャー
 
-- 専用レイヤー（MacGesture のように、そこにいる間ずっとカーソルが死んでよい場合）は `zip_xy_scaler 0 1` で値を潰す（[ADR-0005](./docs/adr/0005-macgesture-cursor-leak-workaround.md)）
-- 常時アクティブなレイヤー（Android）は RX/RY 改名で base chain に処理を移す（[ADR-0010](./docs/adr/0010-ble-profile-driven-os-overlay-layer.md)）
+ジェスチャーは `zmk-dax-modules` の `dax,input-processor-gesture` が処理する。base chain に 1 つだけ置き、**どのジェスチャーの組を使うかは、アクティブなレイヤーで選ぶ**（`config/gestures.dtsi`）。
 
-チェーンを編集するときは次の 3 点セットを必ず揃えること。1 つでも欠けるとカーソルが動くか、逆に一切動かなくなる。
+| 組 | 有効になる条件 | 内容 |
+|---|---|---|
+| `android` | Gesture レイヤー（9）を保持、かつ Android レイヤー（1）が有効 | 左 → Android の戻る |
+| `browse` | Gesture レイヤー（9）を保持 | 左右 → 戻る・進む、上下 → 先頭・末尾 |
+| `mac` | MacGesture レイヤー（8）を保持 | 上下左右 → デスクトップ表示、Mission Control、App Exposé、Spotlight |
 
-1. `android_override` に `process-next` と末尾の `zip_xy_to_gesture_axis`
-2. base chain に `zip_mouse_gesture_android` と、その後ろの `zip_gesture_axis_to_xy`
-3. `zip_mouse_gesture_android` の `event-code-x` / `event-code-y` が `INPUT_REL_RX` / `INPUT_REL_RY`
+- アクティブなレイヤーを上から見て、組を持つ最初のレイヤーが勝つ。同じレイヤーに複数の組があるときは、`require-layers` を満たすもののうち先に宣言したものが勝つ。`android` を `browse` より先に書いているのはそのため
+- 組が有効な間、カーソルは止まる（`suppress-movement`）。止め方は「イベントの値を 0 にする」で、layer override の中でも効く。override が `ZMK_INPUT_PROC_STOP` を握り潰す（`input_listener.c:228-233`）ことの影響を受けない
+- Gesture レイヤーと MacGesture レイヤーは、キーを 1 つも変えない。ジェスチャーを有効にする目印としてだけ存在する。Mouse レイヤーの `&mo GESTURE` / `&mo MAC_GESTURE` で保持する
+- ジェスチャー 1 つにつき behavior は 1 つ。複数の操作はマクロにして割り当てる
+- 調整値（`stroke-size = <300>`、即時発火、`idle-timeout-ms = <150>`、`gesture-cooldown-ms = <200>`）は全部の組で共通
 
 エンコーダの反転と粗さ調整は `trackball_listener` ではなく `&msc_input_listener` (`config/dax6.keymap`) 側の `android_encoder_override` が担当する。`rsr_scroll` 系の behavior は `&msc` に委譲し、`&msc` は自前の input-listener を持つため。`&kp` を割り当てた音量・輝度には影響しない。
 
@@ -309,12 +309,11 @@ dax6 はこの方法を使っている。BLE profile の切り替えに連動し
 - **`nixpkgs` は更新しない。** 新しい nixpkgs は `python310` を持たず、zephyr-nix の評価が darwin で失敗する。`nix flake update` は `zephyr` と `zephyr-nix` だけを対象にする
 - **nanopb の生成には protobuf と grpcio-tools が要る。** Zephyr 4.1 の requirements に含まれないので `pythonEnv` に足している。west のラッパーが PATH の先頭に素の `python3` を置くため、`PYTHONPATH` でも見えるようにしている
 
-### zmk-rgbled-widget / zmk-driver-paw3222 / zmk-mouse-gesture
+### zmk-rgbled-widget / zmk-driver-paw3222
 
 いずれも main 系で動く版を SHA で固定している。`revision: main` や tag の直当ては、将来の更新で壊れるので使わない。
 
 - `zmk-rgbled-widget`: `xiao_ble_zmk.overlay` を持つ版。v0.3 系へ戻すなら `a3510c9d`（`seeeduino_xiao_ble` に対応する最後の版）
-- `zmk-mouse-gesture`: 以前は tag `v1` を指していたが、この tag は動く。2026-08-16 以降、`suppress-movement` は STOP を返す代わりにイベントの値を 0 にするようになった
 
 PAW3222 ドライバは raw `INPUT_REL_X` / `INPUT_REL_Y` のみ発行する設計のため、orientation /
 invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** で実装する。
@@ -356,7 +355,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 | マクロ | `zmk-feature-runtime-macro`（`cormoran__runtime_macro`） |
 | PAW3222 の CPI | `zmk-dax-modules` の `src/trackball_settings.c`（`dax_trackball`、値は custom-settings 経由） |
 
-実行時に変えられないもの: エンコーダーの `triggers-per-rotation`、マウスジェスチャーの調整値とパターン、hold-tap のタイミング。
+実行時に変えられないもの: エンコーダーの `triggers-per-rotation`、マウスジェスチャーの調整値とパターン（実行時編集は `zmk-dax-modules` で実装予定）、hold-tap のタイミング。
 
 共通の約束事:
 
@@ -369,7 +368,6 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 
 - `tb_pointer` は反転を「入替の前の軸」で判定する。`xy-swap-enabled; x-invert;` が、以前の `zip_xy_transform (XY_SWAP | Y_INVERT)` と同じ結果になる
 - `tb_pointer` は Scroll レイヤーのチェーンでも先頭にいるので、その倍率はスクロールにも掛かる
-- `tb_pointer` が扱うのは X/Y だけ。Android の RX/RY には触らないので、base chain で二重に掛かることはない
 - エンコーダーのスクロール（`&msc_input_listener` 側の反転と 3/5 倍率）は固定のまま
 
 ### combo とマクロ
@@ -406,7 +404,8 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 | 5 | Mouse | マウスボタン |
 | 6 | Scroll | スクロールモード |
 | 7 | Device | BLE設定 |
-| 8 | MacGesture | macOS用マウスジェスチャ (Mouse layerから遷移) |
+| 8 | MacGesture | macOS用マウスジェスチャの目印 (Mouse layerから保持) |
+| 9 | Gesture | 通常のマウスジェスチャの目印 (Mouse layerから保持) |
 
 ### Android オーバーレイレイヤー (= 1)
 

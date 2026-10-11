@@ -6,8 +6,6 @@ manifest:
       url-base: https://github.com/cormoran
     - name: caksoylar
       url-base: https://github.com/caksoylar
-    - name: kot149
-      url-base: https://github.com/kot149
     - name: sekigon-gonnoc
       url-base: https://github.com/sekigon-gonnoc
     - name: wadackel
@@ -38,11 +36,8 @@ manifest:
     - name: zmk-rgbled-widget
       remote: caksoylar
       revision: e6b467792a1dabef8cfa5c9fd26bfefc9c16662b  # main as of 2026-07-09
-    - name: zmk-mouse-gesture
-      remote: kot149
-      revision: a3f70a2a189f6fa34a0b696dea50b73368ce5750  # v1 as of 2026-09-21
     - name: zmk-dax-modules
       remote: wadackel
-      revision: c5c297bd0b786e9c8bfcda9d1111675e17a043c7  # main as of 2026-10-11
+      revision: ffd382819c660dde70a04e458110a7fb4350dff5  # main as of 2026-10-11
   self:
     path: config

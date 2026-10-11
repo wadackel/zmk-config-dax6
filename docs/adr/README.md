@@ -26,7 +26,7 @@ ADRは決定の凍結ポイントを残し、AGENTS.md はその決定を反映�
 | [0002](./0002-migrate-trackball-driver-to-paw3222.md) | Migrate trackball driver from PMW3610 to PAW3222 | Draft | 2026-06-18 |
 | [0003](./0003-pin-west-yml-revisions-to-shas.md) | Pin west.yml module revisions to commit SHAs | Draft | 2026-02-17 |
 | [0004](./0004-encoder-parameter-selection.md) | Encoder parameter selection (tap-ms / triggers-per-rotation / SCRL_VAL) | Draft | 2026-01-31 |
-| [0005](./0005-macgesture-cursor-leak-workaround.md) | MacGesture cursor leak workaround via zip_xy_scaler | Draft | 2026-06-20 |
+| [0005](./0005-macgesture-cursor-leak-workaround.md) | MacGesture cursor leak workaround via zip_xy_scaler | Superseded | 2026-06-20 |
 | [0006](./0006-hold-tap-use-standard-mt.md) | Use standard &mt for hold-tap (supersedes Karabiner-style kht) | Draft | 2026-02-28 |
 | [0007](./0007-migrate-build-env-to-nix.md) | Migrate build environment from Docker to Nix | Draft | 2026-01-25 |
 | [0008](./0008-in-house-keymap-editor.md) | In-house keymap editor (structural limitations of ZMK Studio) | Superseded | 2026-06-25 |
@@ -35,3 +35,4 @@ ADRは決定の凍結ポイントを残し、AGENTS.md はその決定を反映�
 | [0011](./0011-dya-studio-support.md) | DYA Studio support via cormoran ZMK fork and runtime sensor rotate | Draft | 2026-10-11 |
 | [0012](./0012-migrate-to-zmk-main.md) | Migrate to ZMK main and adopt runtime settings modules | Draft | 2026-10-11 |
 | [0013](./0013-retire-tools-tester.md) | Retire tools/tester in favor of daxial | Draft | 2026-10-11 |
+| [0014](./0014-own-gesture-module.md) | Replace zmk-mouse-gesture with a layer-selected gesture processor | Draft | 2026-10-11 |

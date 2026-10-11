@@ -8,7 +8,7 @@
 #include <dt-bindings/zmk/keys.h>
 #include <dt-bindings/zmk/pointing.h>
 #include <input/processors.dtsi>
-#include <mouse-gesture.dtsi>
+#include <dt-bindings/dax/gesture.h>
 
 // Ctrl+Alt+Shift+Meta as a single modifier. The keycode itself is a modifier
 // usage, so it lands in the HID modifier byte and a bare tap sends no character.
@@ -19,111 +19,9 @@
 #define SCROLL 6
 #define NUM 3
 #define MAC_GESTURE 8
+#define GESTURE 9
 
-&zip_mouse_gesture {
-    stroke-size = <300>;
-    enable-eager-mode;
-    suppress-movement;
-    idle-timeout-ms = <150>;
-    gesture-cooldown-ms = <200>;
-
-    g_back {
-        pattern = <GESTURE_LEFT>;
-        bindings = <&kp LG(LEFT_BRACKET)>;
-    };
-
-    g_fwd {
-        pattern = <GESTURE_RIGHT>;
-        bindings = <&kp LG(RIGHT_BRACKET)>;
-    };
-
-    g_top {
-        pattern = <GESTURE_UP>;
-        bindings = <&kp LG(UP_ARROW)>;
-    };
-
-    g_bottom {
-        pattern = <GESTURE_DOWN>;
-        bindings = <&kp LG(DOWN_ARROW)>;
-    };
-};
-
-/ {
-    zip_mouse_gesture_mac: zip_mouse_gesture_mac {
-        compatible = "zmk,input-processor-mouse-gesture";
-        #input-processor-cells = <0>;
-        stroke-size = <300>;
-        enable-eager-mode;
-        always-active;
-        idle-timeout-ms = <150>;
-        gesture-cooldown-ms = <200>;
-
-        mg_desktop {
-            pattern = <GESTURE_UP>;
-            bindings = <&kp F11>;
-        };
-
-        mg_mission_control {
-            pattern = <GESTURE_RIGHT>;
-            bindings = <&kp RC(UP_ARROW)>;
-        };
-
-        mg_app_expose {
-            pattern = <GESTURE_DOWN>;
-            bindings = <&kp RC(DOWN)>;
-        };
-
-        mg_spotlight {
-            pattern = <GESTURE_LEFT>;
-            bindings = <&kp LG(SPACE)>;
-        };
-    };
-
-
-    // A layer override can never suppress movement: input_listener.c:223-225 returns 0
-    // instead of the chain's ZMK_INPUT_PROC_STOP, so `suppress-movement` only takes
-    // effect from the base chain. Renaming the Android chain's axes to RX/RY hides
-    // them from the macOS gesture node and from the base transform, which lets the
-    // Android gesture node sit in the base chain and stop the cursor for real.
-    // RX/RY never reach the host — handle_rel_code() only knows X/Y/WHEEL/HWHEEL —
-    // so the base chain has to rename them back on the way out.
-    zip_xy_to_gesture_axis: zip_xy_to_gesture_axis {
-        compatible = "zmk,input-processor-code-mapper";
-        #input-processor-cells = <0>;
-        type = <INPUT_EV_REL>;
-        map
-            = <INPUT_REL_X INPUT_REL_RX>
-            , <INPUT_REL_Y INPUT_REL_RY>
-            ;
-    };
-
-    zip_gesture_axis_to_xy: zip_gesture_axis_to_xy {
-        compatible = "zmk,input-processor-code-mapper";
-        #input-processor-cells = <0>;
-        type = <INPUT_EV_REL>;
-        map
-            = <INPUT_REL_RX INPUT_REL_X>
-            , <INPUT_REL_RY INPUT_REL_Y>
-            ;
-    };
-
-    zip_mouse_gesture_android: zip_mouse_gesture_android {
-        compatible = "zmk,input-processor-mouse-gesture";
-        #input-processor-cells = <0>;
-        event-code-x = <INPUT_REL_RX>;
-        event-code-y = <INPUT_REL_RY>;
-        stroke-size = <300>;
-        enable-eager-mode;
-        suppress-movement;
-        idle-timeout-ms = <150>;
-        gesture-cooldown-ms = <200>;
-
-        g_back {
-            pattern = <GESTURE_LEFT>;
-            bindings = <&kp C_AC_BACK>;
-        };
-    };
-};
+#include "gestures.dtsi"
 
 // Encoder scroll reaches the host through &msc, which owns its own input-listener.
 // The listener lives in behaviors.dtsi, which the shield overlay is parsed before,
@@ -312,7 +210,7 @@
 
         Mouse {
             bindings = <
-&trans   &trans   &trans   &trans   &trans   &trans                                                       &kp F11                     &kp RG(R)   &mo MAC_GESTURE   &mouse_gesture   &trans   &trans
+&trans   &trans   &trans   &trans   &trans   &trans                                                       &kp F11                     &kp RG(R)   &mo MAC_GESTURE   &mo GESTURE      &trans   &trans
 &trans   &trans   &trans   &trans   &trans   &trans                                                       &kp RC(UP_ARROW)            &mkp MB1    &mkp MB3          &mkp MB2         &trans   &trans
 &trans   &trans   &trans   &trans   &trans   &trans   &trans                   &trans                     &kp RC(DOWN)                &mkp MB4    &mkp MB5          &kp RG(W)        &trans   &trans
                            &trans   &trans   &trans   &trans                   &kp RG(RS(LEFT_BRACKET))   &kp RG(RS(RIGHT_BRACKET))
@@ -344,6 +242,19 @@
         };
 
         MacGesture {
+            bindings = <
+&trans   &trans   &trans   &trans   &trans   &trans                                     &trans   &trans   &trans   &trans   &trans   &trans
+&trans   &trans   &trans   &trans   &trans   &trans                                     &trans   &trans   &trans   &trans   &trans   &trans
+&trans   &trans   &trans   &trans   &trans   &trans   &trans                   &trans   &trans   &trans   &trans   &trans   &trans   &trans
+                           &trans   &trans   &trans   &trans                   &trans   &trans
+            >;
+
+            sensor-bindings = <&rsr_scroll>, <&rsr_scroll_rev>;
+        };
+
+        // Held from the Mouse layer. It changes no key: it exists so that the gesture processor
+        // has a layer to tell "gestures on" by (config/gestures.dtsi).
+        Gesture {
             bindings = <
 &trans   &trans   &trans   &trans   &trans   &trans                                     &trans   &trans   &trans   &trans   &trans   &trans
 &trans   &trans   &trans   &trans   &trans   &trans                                     &trans   &trans   &trans   &trans   &trans   &trans

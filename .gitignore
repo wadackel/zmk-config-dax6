@@ -8,7 +8,6 @@ zmk/
 zmk-driver-paw3222/
 zmk-pmw3610-driver/
 zmk-rgbled-widget/
-zmk-mouse-gesture/
 zmk-behavior-runtime-sensor-rotate/
 zmk-feature-custom-settings/
 zmk-module-runtime-input-processor/
