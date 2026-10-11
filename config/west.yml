@@ -17,15 +17,27 @@ manifest:
       import: app/west.yml
     - name: zmk-behavior-runtime-sensor-rotate
       remote: cormoran
-      revision: 8b1125ed  # main as of 2026-07-06, CI-tested against v0.3-branch+custom-studio-protocol
+      revision: 8b1125ed676c1f5e14145d217984f33d0ebdcef4  # main as of 2026-07-06
+    - name: zmk-feature-custom-settings
+      remote: cormoran
+      revision: c6a7fef3a3be3d3ace5de9a4b0628c6418cd1f3f  # main as of 2026-07-23
+    - name: zmk-module-runtime-input-processor
+      remote: cormoran
+      revision: decf628d7ce5ed95b520c650824c28ea9de649c1  # main as of 2026-09-27
+    - name: zmk-feature-runtime-combo
+      remote: cormoran
+      revision: d9490e7b5d41c516221d131241009e81740efcee  # main as of 2026-07-18
+    - name: zmk-feature-runtime-macro
+      remote: cormoran
+      revision: 38530962eb7061b60efcb98e84585cfb1f0cb6de  # main as of 2026-07-18
     - name: zmk-driver-paw3222
       remote: sekigon-gonnoc
-      revision: df652881  # Last version compatible with ZMK v0.3 (PAW3222 driver, verified 2026-06-15)
+      revision: df652881be2520bde4f64ab6ca35e4c5708f4f9b  # main as of 2026-06-15, builds against ZMK main
     - name: zmk-rgbled-widget
       remote: caksoylar
       revision: e6b467792a1dabef8cfa5c9fd26bfefc9c16662b  # main as of 2026-07-09
     - name: zmk-mouse-gesture
       remote: kot149
-      revision: v1
+      revision: a3f70a2a189f6fa34a0b696dea50b73368ce5750  # v1 as of 2026-09-21
   self:
     path: config

@@ -2,6 +2,7 @@
 
 #include <behaviors.dtsi>
 #include <behaviors/runtime-sensor-rotate.dtsi>
+#include <behaviors/runtime_macro.dtsi>
 #include <dt-bindings/zmk/bt.h>
 #include <dt-bindings/zmk/input_transform.h>
 #include <dt-bindings/zmk/keys.h>
@@ -156,28 +157,35 @@
 // 16 ms, and DYA Studio reuses a layer's current tap-ms when it rebinds, so the
 // binding default of 5 would leave a later &msc silent.
 / {
-    combos {
-        compatible = "zmk,combos";
+    // Compile-time defaults for the runtime combos (`cormoran__runtime_combo`). A
+    // slot edited or deleted from a settings app keeps that stored value, and the
+    // layer filter still looks at the highest active layer only, hence `<0 1>`.
+    runtime_combo_defaults {
+        compatible = "cormoran,runtime-combo-defaults";
 
         to_device {
+            slot = <0>;
             bindings = <&mo 7>;
             key-positions = <0 29>;
             layers = <0 1>;
         };
 
         kl_scroll {
+            slot = <1>;
             bindings = <&mo 6>;
             key-positions = <20 21>;
             layers = <0 1>;
         };
 
         to_device_left {
+            slot = <2>;
             bindings = <&tog 7>;
             key-positions = <0 12 24>;
             layers = <0 1>;
         };
 
         to_device_right {
+            slot = <3>;
             bindings = <&tog 7>;
             key-positions = <11 23 37>;
             layers = <0 1>;

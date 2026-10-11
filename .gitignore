@@ -10,6 +10,10 @@ zmk-pmw3610-driver/
 zmk-rgbled-widget/
 zmk-mouse-gesture/
 zmk-behavior-runtime-sensor-rotate/
+zmk-feature-custom-settings/
+zmk-module-runtime-input-processor/
+zmk-feature-runtime-combo/
+zmk-feature-runtime-macro/
 bootloader/
 *.uf2
 *.bin
