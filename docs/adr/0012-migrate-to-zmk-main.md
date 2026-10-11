@@ -41,7 +41,7 @@ ZMK を main 系（Zephyr 4.1）へ移し、設定モジュールを 4 つ追加
 - `dax6_R` は FLASH 361,352 B（44.78%）/ RAM 141,144 B（53.84%）。v0.3 系は 274,356 B / 81,348 B。`dax6_L` と `settings_reset` もビルドが通る。
 - 左右とも書き込み直す。v0.3 系で保存した設定は behavior の番号が合わなくなるおそれがあるので、先に `settings_reset` を書く（BLE のボンドも消える）。
 - ボード名が `xiao_ble//zmk` になった（Justfile、`build.yaml`）。CI の reusable workflow は upstream main の SHA に固定した。
-- combo は `config/dax6.keymap` の `runtime_combo_defaults` に書く。`tools/tester` の editor は `zmk,combos` を前提にしているため、Combos タブでは編集できなくなった。
+- combo は `config/dax6.keymap` の `runtime_combo_defaults` に書く。`tools/tester` の editor は `zmk,combos` を前提にしていて読めないため、[ADR-0013](./0013-retire-tools-tester.md) で `tools/tester` ごと削除した。
 - fork は upstream main から 59 コミット遅れている（2026-10-11 時点）。split の入力レポートのデッドロック修正（upstream #3110）などは fork が取り込むまで届かない。
 
 ## Status
@@ -59,7 +59,6 @@ ZMK を main 系（Zephyr 4.1）へ移し、設定モジュールを 4 つ追加
 - `zmk-mouse-gesture` の新しい `suppress-movement` を前提に、Android 用の RX/RY の付け替えと MacGesture の `zip_xy_scaler 0 1` を外せるか検討する。
 - PAW3222 の CPI、エンコーダーの `triggers-per-rotation`、マウスジェスチャーの調整値とパターンは実行時に変えられない。custom-settings に載せる自作モジュールが要る。
 - `esc_lang2` がスロット 0 に入ることを、書き込み後にアプリのマクロ一覧で確かめる。違う番号なら、keymap の `&esc_lang2_with_layer 4 0` の 0 を直す。既定値のマクロを増やすと、この前提が崩れる。
-- `tools/tester` の editor をどうするか（combo を読めるようにするか、daxial へ役割を寄せて畳むか）。
 
 ---
 

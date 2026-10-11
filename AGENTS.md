@@ -32,7 +32,6 @@ nix develop --command just pristine
 - `app/` - カスタム ZMK モジュール（os_layer.c, Kconfig）
 - `boards/shields/dax6/` - Shield定義（dtsi, overlay, conf, Kconfig）
 - `config/` - キーマップ（`dax6.keymap`）、`west.yml`、ZMK Studio用 JSON
-- `tools/tester/` - キーマップテスター + keymap editor Webアプリ（Vite + HonoX、editor は dev 専用）
 - `docs/` - 詳細な学びのドキュメント
 - `docs/adr/` - アーキテクチャ意思決定記録（ADR）
 
@@ -400,26 +399,6 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 - `.github/workflows/build.yml` - push/PR/手動トリガーで実行
 - ZMK の reusable workflow（`zmkfirmware/zmk/.github/workflows/build-user-config.yml` を upstream main の SHA で固定）を使用。workflow 自体は upstream のものだが、ビルドする ZMK は `config/west.yml` が指す cormoran fork
 - ビルド対象は `build.yaml` で定義（`build.yml` と混同しないこと）
-
-### テスター + keymap editor (tools/tester)
-- `.github/workflows/deploy-tester.yml` - main ブランチへのプッシュで自動デプロイ（手動トリガーも可）
-- URL: `https://wadackel.github.io/zmk-config-dax6/`
-- node/pnpm バージョンは `.mise.toml` で管理（source of truth）
-- `tools/tester/package.json` の `packageManager` は corepack 互換のため同期して更新すること
-- 依存追加時は `pnpm-lock.yaml` を再生成・コミットすること（CI は `pnpm install --frozen-lockfile`）
-
-#### 2つのモード
-- **Editor**（dev の `/`）: `config/dax6.keymap` を実ファイル編集するローカル専用エディタ。`just editor` で起動（`http://localhost:5173/`）。Layers/Combos/Macros/Behaviors/Sensors/MouseGestures タブ、保存前に unified diff プレビュー。**dev 専用** — 本番 GitHub Pages ビルドからは editor 一式（islands + `/api/**`）が除外され、`/` は tester を配信する（`vite-plugins/dev-only-routes.ts` + `app/server.ts` の ROUTES + `routes/index.tsx` の `import.meta.env.DEV` 分岐）。
-- **Tester**（dev の `/tester`、本番 `/`）: 物理キー打鍵の可視化（読み取り専用）。
-
-#### editor の実装メモ
-- devicetree パーサ `app/core/keymap-dt/` が `config/dax6.keymap` を parse/serialize/lint。キー数は `app/boards/dax6/matrix.ts` の `TRANSFORM`（12/12/14/6=44、R3 は matrix cols c3..c8）に一元化。
-- **初回保存で `bindings = <…>;` の空白が canonical 整形に正規化される**（以降は round-trip 安定、`serialize.ts` ヘッダ参照）。`default_layer.grid.golden` fixture が canonical 出力を byte 単位で pin。
-- Sensors タブは `steps=80` を `triggers-per-rotation` で割り切れない場合に WARN を表示する。現行の実値 `40` は `80 % 40 = 0` の整数約数なので WARN は出ない（`24` に戻すと非整数比のため WARN が復活する）。
-- Sensors タブは `sensor-bindings` が指す rsr の behavior から CW / CCW の既定値を解決して表示する（表示専用。割当の付け替えは BindingDock、`cw-binding` / `ccw-binding` の編集は Behaviors タブ）。`&msc` を使う rsr の behavior ごとに `tap-ms` を検査し、16 未満または未指定をエラーにする。
-- editor が編集するのは keymap の既定値で、アプリで保存済みの値は上書きしない。
-- **Combos タブは今の keymap の combo を扱えない。** editor は `zmk,combos` のノードを前提にしており、`runtime_combo_defaults` を読まない。テスト用の fixture（`__fixtures__/dax6.keymap`）も移行前の keymap のまま。combo の編集は daxial で行う。
-- 保存後のファーム反映は手動: `nix develop --command just build-target dax6_R`。
 
 ## 参考ドキュメント
 

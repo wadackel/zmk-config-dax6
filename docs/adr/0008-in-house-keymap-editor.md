@@ -38,7 +38,7 @@ dax6 は combos + macros + mouse gesture + encoder sensor-bindings を積極的�
 
 ## Superseded-by
 
--
+ADR-0013
 
 ---
 
