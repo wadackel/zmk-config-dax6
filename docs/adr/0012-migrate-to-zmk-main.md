@@ -33,6 +33,7 @@ ZMK を main 系（Zephyr 4.1）へ移し、設定モジュールを 4 つ追加
 | チェーンの構造（base / scroll / mac_gesture / android の 4 本、RX/RY の付け替え）は変えない | override が STOP を握り潰す挙動は main 系でも同じ。`zmk-mouse-gesture` は値を 0 にする方式に変わったので簡略化できる可能性があるが、カーソルの挙動は実機でしか確かめられないため、移行と同時には行わない |
 | combo 4 つを `cormoran,runtime-combo-defaults` に移し、`zmk,combos` を削除 | 既存の combo を GUI で編集できるようにする。同じキーを両方が持つ場合の挙動は不明なので併用しない |
 | マクロ `esc_lang2` を実行時マクロの既定値（`cormoran,runtime-macro-default`）に移し、hold-tap の tap 側を `&rmacro`、引数をスロット 0 にする | 中身を GUI で変えられることを優先する（daxial の issue #9）。既定値のスロット番号はビルド時に決まらないが、既定値が 1 つだけなら settings reset の直後は最初の空きであるスロット 0 に入る見込み。`wait-ms = <15>` は従来のマクロの既定の間隔に合わせた |
+| 自作のモジュール（OS レイヤー、PAW3222 の CPI 設定）を `wadackel/zmk-dax-modules` に切り出し、`config/west.yml` から SHA で参照する | dax5 や今後の機体と共有する。repo ごとにコピーを抱えると当て漏れが起きる |
 | `ZMK_BEHAVIOR_LOCAL_ID_TYPE_CRC16` は設定しない | モジュールの README は推奨するが理由がソースに無い。切り替えると behavior の番号が全部変わる |
 | `zmk-behavior-runtime-sensor-rotate` は `8b1125ed` のまま | main 系でビルドできた。custom-settings へ移す PR #7 は未マージ |
 
@@ -57,7 +58,8 @@ ZMK を main 系（Zephyr 4.1）へ移し、設定モジュールを 4 つ追加
 - 実機確認が未実施。左右を書き込み、キー入力・レイヤー・combo・トラックボールの向きと速さ・Scroll レイヤー・マウスジェスチャー・エンコーダー・BLE プロファイル 3 の Android レイヤーが移行前と同じに動くことを確認する。
 - `&to` で Android レイヤーが落ちないことを確かめ、ADR-0010 と `AGENTS.md` の「`&to` は使わない」を見直す。
 - `zmk-mouse-gesture` の新しい `suppress-movement` を前提に、Android 用の RX/RY の付け替えと MacGesture の `zip_xy_scaler 0 1` を外せるか検討する。
-- PAW3222 の CPI、エンコーダーの `triggers-per-rotation`、マウスジェスチャーの調整値とパターンは実行時に変えられない。custom-settings に載せる自作モジュールが要る。
+- エンコーダーの `triggers-per-rotation`、マウスジェスチャーの調整値とパターンは実行時に変えられない。ジェスチャーは専用のモジュールを自作する方針（daxial の issue #8）。
+- `zmk-dax-modules` は private。GitHub Actions のビルド（`build.yml`）は既定のトークンでは取得できないので、公開するか、取得用のトークンを用意するかを決める。
 - `esc_lang2` がスロット 0 に入ることを、書き込み後にアプリのマクロ一覧で確かめる。違う番号なら、keymap の `&esc_lang2_with_layer 4 0` の 0 を直す。既定値のマクロを増やすと、この前提が崩れる。
 
 ---

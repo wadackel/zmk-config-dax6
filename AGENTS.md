@@ -29,8 +29,9 @@ nix develop --command just pristine
 
 ## ディレクトリ構造
 
-- `app/` - カスタム ZMK モジュール（os_layer.c, Kconfig）
 - `boards/shields/dax6/` - Shield定義（dtsi, overlay, conf, Kconfig）
+- `module/` - 空の CMakeLists.txt / Kconfig。west が Zephyr を `./zephyr` に取得するため、明示しないとこの repo の Zephyr モジュール定義が Zephyr 本体の `zephyr/CMakeLists.txt` を拾ってしまう
+- dax 系で共有する自作モジュール（OS レイヤー、トラックボールの CPI 設定）は別 repo [`wadackel/zmk-dax-modules`](https://github.com/wadackel/zmk-dax-modules)（private）にあり、`config/west.yml` から SHA で参照する
 - `config/` - キーマップ（`dax6.keymap`）、`west.yml`、ZMK Studio用 JSON
 - `docs/` - 詳細な学びのドキュメント
 - `docs/adr/` - アーキテクチャ意思決定記録（ADR）
@@ -260,7 +261,7 @@ sensors: sensors {
 BLE GATT 経由の OS 識別も未実装。BLE profile ベースのマッピングが唯一の手段。
 
 dax6 はこの方法を使っている。BLE profile の切り替えに連動して overlay レイヤーを有効にするカスタムモジュール
-`app/src/os_layer.c`（`CONFIG_ZMK_OS_LAYER`）で、詳細は「Android オーバーレイレイヤー」節を参照。
+`zmk-dax-modules` の `src/os_layer.c`（`CONFIG_ZMK_OS_LAYER`）で、詳細は「Android オーバーレイレイヤー」節を参照。
 
 ### ZMK 本体は cormoran fork（main 系）
 
@@ -328,7 +329,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 | トラックボールの向き・倍率、Scroll レイヤーの向き・粗さ | `zmk-module-runtime-input-processor`（`cormoran_rip`） |
 | combo | `zmk-feature-runtime-combo`（`cormoran__runtime_combo`） |
 | マクロ | `zmk-feature-runtime-macro`（`cormoran__runtime_macro`） |
-| PAW3222 の CPI | `app/src/trackball_settings.c`（`dax_trackball`、値は custom-settings 経由） |
+| PAW3222 の CPI | `zmk-dax-modules` の `src/trackball_settings.c`（`dax_trackball`、値は custom-settings 経由） |
 
 実行時に変えられないもの: エンコーダーの `triggers-per-rotation`、マウスジェスチャーの調整値とパターン、hold-tap のタイミング。
 
@@ -384,11 +385,11 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 
 ### Android オーバーレイレイヤー (= 1)
 
-`CONFIG_ZMK_OS_LAYER=y` + `CONFIG_ZMK_OS_LAYER_PROFILE_3=1` (`dax6_R.conf`) により、BLE プロファイル 3 を選ぶと `app/src/os_layer.c` がこのレイヤーを常時アクティブにする。詳細と判断根拠は [ADR-0010](./docs/adr/0010-ble-profile-driven-os-overlay-layer.md)。
+`CONFIG_ZMK_OS_LAYER=y` + `CONFIG_ZMK_OS_LAYER_PROFILE_3=1` (`dax6_R.conf`) により、BLE プロファイル 3 を選ぶと `zmk-dax-modules` の `src/os_layer.c` がこのレイヤーを常時アクティブにする。詳細と判断根拠は [ADR-0010](./docs/adr/0010-ble-profile-driven-os-overlay-layer.md)。
 
 レイヤーを追加・並べ替えるときに壊れやすい点:
 
-- **`&to` は使わない。** v0.3 系では `&to` が全レイヤーを deactivate し、常時アクティブなオーバーレイも落ちて次のプロファイル変更まで復帰しなかった。main 系では `os_layer.c` がレイヤーをロックして有効にするので、ロックなしの `&to` では落ちないはずだが、実機では未確認。確かめるまで、レイヤーの出入りは `&tog` / `&mo` で行う
+- **`&to` は使わない。** v0.3 系では `&to` が全レイヤーを deactivate し、常時アクティブなオーバーレイも落ちて次のプロファイル変更まで復帰しなかった。main 系では `zmk-dax-modules` の `os_layer.c` がレイヤーをロックして有効にするので、ロックなしの `&to` では落ちないはずだが、実機では未確認。確かめるまで、レイヤーの出入りは `&tog` / `&mo` で行う
 - **combo の `layers` は `<0 1>` と書く。** combo のレイヤーフィルタは「最上位のアクティブレイヤー 1 つ」しか見ない。非 Android 時は `highest=0`、Android 時は `highest=1` になるため両方を列挙する必要がある
 - **Android レイヤーは index 1 に置く。** 最上位に置くと `highest_active_layer` が常に Android になり、combo のレイヤー限定が全レイヤーで無効化される
 - 上書きするキー位置は他レイヤーで `&trans` のものを選ぶ。Android(1) は Symbol(2) 以上に負けるが、default_layer(0) は上書きできる

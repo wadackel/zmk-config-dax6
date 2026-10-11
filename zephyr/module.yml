@@ -1,6 +1,6 @@
 name: dax6
 build:
-  cmake: app
-  kconfig: app/Kconfig
+  cmake: module
+  kconfig: module/Kconfig
   settings:
     board_root: .

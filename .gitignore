@@ -14,6 +14,7 @@ zmk-feature-custom-settings/
 zmk-module-runtime-input-processor/
 zmk-feature-runtime-combo/
 zmk-feature-runtime-macro/
+zmk-dax-modules/
 bootloader/
 *.uf2
 *.bin
