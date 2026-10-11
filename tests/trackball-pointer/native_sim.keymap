@@ -1,0 +1,36 @@
+#include "../common.dtsi"
+#include "../../boards/shields/dax6/trackball_processors.dtsi"
+
+// Raw sensor reports: right 10, then down 3, then up-left. The base chain must turn them into the
+// same pointer movement whether it uses the runtime processor or the fixed transform it replaced.
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer {
+            bindings = <&none &none &none &none>;
+        };
+    };
+
+    mock_trackball: mock_trackball {
+        compatible = "zmk,input-mock";
+        event-startup-delay = <1000>;
+        event-period = <20>;
+        events
+            = <INPUT_EV_REL INPUT_REL_X 10 1>
+            , <INPUT_EV_REL INPUT_REL_Y 3 1>
+            , <INPUT_EV_REL INPUT_REL_X (-7) 0>
+            , <INPUT_EV_REL INPUT_REL_Y (-5) 1>
+            ;
+    };
+
+    trackball_listener {
+        compatible = "zmk,input-listener";
+        device = <&mock_trackball>;
+        input-processors = <&tb_pointer>;
+    };
+};
+
+&kscan {
+    // The run ends with the last key event, so this only keeps it alive past the last report.
+    events = <ZMK_MOCK_PRESS(0,0,3000) ZMK_MOCK_RELEASE(0,0,10)>;
+};

@@ -42,6 +42,7 @@ ZMK を main 系（Zephyr 4.1）へ移し、設定モジュールを 4 つ追加
 
 - `dax6_R` は FLASH 361,352 B（44.78%）/ RAM 141,144 B（53.84%）。v0.3 系は 274,356 B / 81,348 B。`dax6_L` と `settings_reset` もビルドが通る。
 - 2026-10-11 に左右へ書き込み、USB 経由の RPC で次を確かめた（daxial の `pnpm verify:device` と `pnpm test:device`）。9 レイヤー・44 キーが読める。接続直後に「未保存」が立たない。エンコーダー割当が 2 つとも全レイヤー分読める。`pointer` は XY 入替と X 反転、`scroll` は Y 反転と 1/64 で、devicetree の既定値どおり。CPI は 1400（範囲 608〜4826）。combo は 4 つが既定値として読める。`esc_lang2` はスロット 0 に入っている。各設定の RAM への書き込みと破棄、combo の追加・編集・破棄、マクロの作成・ステップ追加・削除が動く。
+- native_sim のテスト（`tests/`）で次を確かめた。`tb_pointer` と `tb_scroll` の出力が、置き換え前の固定の処理と一致する。実行時 combo の既定値が発火し、`layers = <0 1>` の絞り込みが期待どおり働く。`esc_lang2` の親指キーが tap で ESC → LANG2、hold でレイヤー切り替えになる。
 - 左右とも書き込み直す。v0.3 系で保存した設定は behavior の番号が合わなくなるおそれがあるので、先に `settings_reset` を書く（BLE のボンドも消える）。
 - ボード名が `xiao_ble//zmk` になった（Justfile、`build.yaml`）。CI の reusable workflow は upstream main の SHA に固定した。
 - combo は `config/dax6.keymap` の `runtime_combo_defaults` に書く。`tools/tester` の editor は `zmk,combos` を前提にしていて読めないため、[ADR-0013](./0013-retire-tools-tester.md) で `tools/tester` ごと削除した。

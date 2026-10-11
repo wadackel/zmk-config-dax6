@@ -27,9 +27,34 @@ nix develop --command just pristine
 - `build/dax6_L.uf2` - 左手側
 - `build/settings_reset.uf2` - 設定リセット用
 
+## テスト（シミュレーター）
+
+`tests/` に、ZMK の native_sim で動かすテストがある。模擬のキー入力とポインター入力を流し、出てくる HID レポートを期待値（`keycode_events.snapshot`）と比べる。実機なしで、keymap とチェーンの「結果」を確かめられる。
+
+```bash
+just test                       # 全部
+just test tests/combos          # 1 件
+ZMK_TESTS_AUTO_ACCEPT=1 just test tests/combos   # 期待値を書き換える（差分は必ず目で見る）
+ZMK_TESTS_RESYNC=1 just test    # west update のあと
+```
+
+| テスト | 確かめていること |
+|---|---|
+| `esc-lang2` | 親指キーの tap が ESC → LANG2 を出し、hold がレイヤーを切り替える（実行時マクロの既定値がスロット 0 に入る） |
+| `combos` | 実行時 combo の既定値が発火する。`layers = <0 1>` の combo は上のレイヤーが有効でも発火し、`<0>` だけのものは発火しない |
+| `trackball-pointer` / `-fixed` | `tb_pointer` の出力が、置き換え前の `zip_xy_transform (XY_SWAP \| Y_INVERT)` と同じ |
+| `trackball-scroll` / `-fixed` | Scroll レイヤーの出力が、置き換え前の固定の処理と同じ（端数の持ち越しを含む） |
+
+- Docker が要る。ホストのディレクトリをコンテナに見せない設定でも動くよう、ワークスペースを Docker のボリューム（`dax6-zmk-tests`）に写してから実行する。Zephyr と `modules/` は初回だけ写す
+- `-fixed` の 2 件は比較の基準で、対になるテストと期待値が同じであることに意味がある
+- `trackball_processors.dtsi` は shield の overlay とテストの両方から読む。テストが見ているのは実機と同じ定義
+- 模擬キー入力（`ZMK_MOCK_PRESS(row, col, ms)`）の `ms` は「次のイベントまでの間隔」。最初のイベントの前にも同じ時間だけ待つ
+- マウスジェスチャーと BLE プロファイル連動のレイヤーは、まだテストが無い
+
 ## ディレクトリ構造
 
 - `boards/shields/dax6/` - Shield定義（dtsi, overlay, conf, Kconfig）
+- `tests/` - native_sim のテストと実行スクリプト
 - `module/` - 空の CMakeLists.txt / Kconfig。west が Zephyr を `./zephyr` に取得するため、明示しないとこの repo の Zephyr モジュール定義が Zephyr 本体の `zephyr/CMakeLists.txt` を拾ってしまう
 - dax 系で共有する自作モジュール（OS レイヤー、トラックボールの CPI 設定）は別 repo [`wadackel/zmk-dax-modules`](https://github.com/wadackel/zmk-dax-modules)（private）にあり、`config/west.yml` から SHA で参照する
 - `config/` - キーマップ（`dax6.keymap`）、`west.yml`、ZMK Studio用 JSON

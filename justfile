@@ -80,6 +80,16 @@ build-target TARGET="dax6_R": _require-nix
       exit 1
     fi
 
+# Run the native_sim tests under tests/ in the ZMK build container (needs Docker)
+test *TESTS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "{{TESTS}}" ]; then
+      tests/run.sh tests/*/
+    else
+      tests/run.sh {{TESTS}}
+    fi
+
 # Clean build artifacts
 clean:
     @echo "Cleaning build artifacts..."
