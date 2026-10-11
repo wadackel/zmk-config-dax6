@@ -58,7 +58,7 @@ ZMK_TESTS_RESYNC=1 just test    # west update のあと
 - `boards/shields/dax6/` - Shield定義（dtsi, overlay, conf, Kconfig）
 - `tests/` - native_sim のテストと実行スクリプト
 - `module/` - 空の CMakeLists.txt / Kconfig。west が Zephyr を `./zephyr` に取得するため、明示しないとこの repo の Zephyr モジュール定義が Zephyr 本体の `zephyr/CMakeLists.txt` を拾ってしまう
-- dax 系で共有する自作モジュール（OS レイヤー、トラックボールの CPI 設定）は別 repo [`wadackel/zmk-dax-modules`](https://github.com/wadackel/zmk-dax-modules)（private）にあり、`config/west.yml` から SHA で参照する
+- dax 系で共有する自作モジュール（マウスジェスチャー、OS レイヤー、トラックボールの CPI 設定）は別 repo [`wadackel/zmk-dax-modules`](https://github.com/wadackel/zmk-dax-modules)（public、英語で統一）にあり、`config/west.yml` から SHA で参照する
 - `config/` - キーマップ（`dax6.keymap`）、`west.yml`、ZMK Studio用 JSON
 - `docs/` - 詳細な学びのドキュメント
 - `docs/adr/` - アーキテクチャ意思決定記録（ADR）
@@ -390,6 +390,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 
 ### 接続
 
+- daxial は <https://wadackel.github.io/daxial/> で開ける。左右とも USB でつなぐとブラウザにポートが 2 つ出るが、応答するのは右手側（central）だけ
 - USB（`studio-rpc-usb-uart` snippet）で Chromium 系ブラウザから接続する。`CONFIG_ZMK_STUDIO_LOCKING=n` なので unlock 操作は不要
 - BLE 経由は未検証。fork の `ZMK_STUDIO_LOCK_BLE_DIRECT_ADVERTISING_ON_UNLOCK` は LOCKING=n だと無効で、ホストと接続済みの間は広告が出ないため、Android Chrome（BLE のみ対応）からは見つからない可能性がある
 - 機体を複数つなぎ替える場合、DYA Studio の変更履歴は機体名で分かれる。`CONFIG_ZMK_KEYBOARD_NAME` を機体ごとに変えておく
