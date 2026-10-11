@@ -34,7 +34,7 @@ dax6 は combos + macros + mouse gesture + encoder sensor-bindings を積極的�
 
 ## Status
 
-`Accepted`（2026-06-25）
+`Superseded`（2026-10-11）
 
 ## Superseded-by
 
