@@ -20,7 +20,7 @@ static const int8_t profile_layers[PROFILE_COUNT] = {
 static void deactivate_all_os_layers(void) {
     for (int i = 0; i < PROFILE_COUNT; i++) {
         if (profile_layers[i] >= 0 && zmk_keymap_layer_active(profile_layers[i])) {
-            zmk_keymap_layer_deactivate(profile_layers[i]);
+            zmk_keymap_layer_deactivate(profile_layers[i], true);
         }
     }
 }
@@ -29,7 +29,7 @@ static void update_os_layer(uint8_t profile_index) {
     deactivate_all_os_layers();
 
     if (profile_index < PROFILE_COUNT && profile_layers[profile_index] >= 0) {
-        zmk_keymap_layer_activate(profile_layers[profile_index]);
+        zmk_keymap_layer_activate(profile_layers[profile_index], true);
     }
 }
 

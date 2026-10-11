@@ -13,7 +13,7 @@ manifest:
   projects:
     - name: zmk
       remote: cormoran
-      revision: b227a48d  # v0.3-branch+custom-studio-protocol (ZMK v0.3 + custom Studio RPC, verified 2026-10-11)
+      revision: 1fc72aaff7a42bd533c1f4c9b3f23c5317c745f4  # main+custom-studio-protocol as of 2026-07-22 (ZMK main + custom Studio RPC)
       import: app/west.yml
     - name: zmk-behavior-runtime-sensor-rotate
       remote: cormoran
@@ -23,7 +23,7 @@ manifest:
       revision: df652881  # Last version compatible with ZMK v0.3 (PAW3222 driver, verified 2026-06-15)
     - name: zmk-rgbled-widget
       remote: caksoylar
-      revision: a3510c9d  # Last version compatible with ZMK v0.3 (seeeduino_xiao_ble)
+      revision: e6b467792a1dabef8cfa5c9fd26bfefc9c16662b  # main as of 2026-07-09
     - name: zmk-mouse-gesture
       remote: kot149
       revision: v1

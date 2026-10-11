@@ -63,7 +63,7 @@ build-target TARGET="dax6_R": _require-nix
 
     echo "Building: {{TARGET}}"
 
-    west build -s zmk/app -b seeeduino_xiao_ble -d "build/{{TARGET}}" -- \
+    west build -s zmk/app -b xiao_ble//zmk -d "build/{{TARGET}}" -- \
       -DBOARD_ROOT="$PROJECT_ROOT" \
       -DSHIELD="$SHIELD" \
       ${SNIPPET:+-DSNIPPET="$SNIPPET"} \
