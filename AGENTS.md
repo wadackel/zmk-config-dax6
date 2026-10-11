@@ -353,9 +353,10 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 | トラックボールの向き・倍率、Scroll レイヤーの向き・粗さ | `zmk-module-runtime-input-processor`（`cormoran_rip`） |
 | combo | `zmk-feature-runtime-combo`（`cormoran__runtime_combo`） |
 | マクロ | `zmk-feature-runtime-macro`（`cormoran__runtime_macro`） |
+| マウスジェスチャー（調整値、組のレイヤー、パターンと割当） | `zmk-dax-modules`（`dax_gesture`、値は custom-settings 経由） |
 | PAW3222 の CPI | `zmk-dax-modules` の `src/trackball_settings.c`（`dax_trackball`、値は custom-settings 経由） |
 
-実行時に変えられないもの: エンコーダーの `triggers-per-rotation`、マウスジェスチャーの調整値とパターン（実行時編集は `zmk-dax-modules` で実装予定）、hold-tap のタイミング。
+実行時に変えられないもの: エンコーダーの `triggers-per-rotation`、hold-tap のタイミング。
 
 共通の約束事:
 
