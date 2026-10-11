@@ -16,6 +16,7 @@
 | main 系の `zmk_keymap_layer_activate` / `_deactivate` は `locking` 引数を取る。ロックして有効にしたレイヤーは、ロックなしの deactivate（`&to` を含む）では落ちない | `keymap.c:134-162, 227-235` |
 | Zephyr 4.1 は SDK 0.17.0 を想定する。0.17.4 では picolibc の `locks.c` がコンパイルできない | `zephyr/SDK_VERSION`、ローカルビルドのエラー |
 | runtime-input-processor は反転を「入替の前の軸」で判定する。`zip_xy_transform` は入替の後に反転する | `input_processor_runtime.c:870-891, 946-949` |
+| `zmk-module-runtime-input-processor` の get 要求は `xy_swap_enabled` と `xy_to_scroll_enabled` を返さない（変更通知には入る） | `custom_handler.c:336-361`、実機 |
 | runtime-macro の devicetree 既定値は、スロット番号がビルド時に決まらない | `cormoran,runtime-macro-default.yaml` |
 | runtime-combo のレイヤーの絞り込みは、最上位のアクティブレイヤーだけを見る | `runtime_combo.c:910` |
 
@@ -40,6 +41,7 @@ ZMK を main 系（Zephyr 4.1）へ移し、設定モジュールを 4 つ追加
 ## Consequences
 
 - `dax6_R` は FLASH 361,352 B（44.78%）/ RAM 141,144 B（53.84%）。v0.3 系は 274,356 B / 81,348 B。`dax6_L` と `settings_reset` もビルドが通る。
+- 2026-10-11 に左右へ書き込み、USB 経由の RPC で次を確かめた（daxial の `pnpm verify:device` と `pnpm test:device`）。9 レイヤー・44 キーが読める。接続直後に「未保存」が立たない。エンコーダー割当が 2 つとも全レイヤー分読める。`pointer` は XY 入替と X 反転、`scroll` は Y 反転と 1/64 で、devicetree の既定値どおり。CPI は 1400（範囲 608〜4826）。combo は 4 つが既定値として読める。`esc_lang2` はスロット 0 に入っている。各設定の RAM への書き込みと破棄、combo の追加・編集・破棄、マクロの作成・ステップ追加・削除が動く。
 - 左右とも書き込み直す。v0.3 系で保存した設定は behavior の番号が合わなくなるおそれがあるので、先に `settings_reset` を書く（BLE のボンドも消える）。
 - ボード名が `xiao_ble//zmk` になった（Justfile、`build.yaml`）。CI の reusable workflow は upstream main の SHA に固定した。
 - combo は `config/dax6.keymap` の `runtime_combo_defaults` に書く。`tools/tester` の editor は `zmk,combos` を前提にしていて読めないため、[ADR-0013](./0013-retire-tools-tester.md) で `tools/tester` ごと削除した。
@@ -55,12 +57,12 @@ ZMK を main 系（Zephyr 4.1）へ移し、設定モジュールを 4 つ追加
 
 ## Follow-ups
 
-- 実機確認が未実施。左右を書き込み、キー入力・レイヤー・combo・トラックボールの向きと速さ・Scroll レイヤー・マウスジェスチャー・エンコーダー・BLE プロファイル 3 の Android レイヤーが移行前と同じに動くことを確認する。
+- 打鍵と体感の確認が未実施（RPC では確かめられない）。キー入力・レイヤー・combo の発火・`esc_lang2` のキー・トラックボールの向きと速さ・Scroll レイヤー・マウスジェスチャー・エンコーダー・BLE プロファイル 3 の Android レイヤーが移行前と同じに動くことを確認する。
 - `&to` で Android レイヤーが落ちないことを確かめ、ADR-0010 と `AGENTS.md` の「`&to` は使わない」を見直す。
 - `zmk-mouse-gesture` の新しい `suppress-movement` を前提に、Android 用の RX/RY の付け替えと MacGesture の `zip_xy_scaler 0 1` を外せるか検討する。
 - エンコーダーの `triggers-per-rotation`、マウスジェスチャーの調整値とパターンは実行時に変えられない。ジェスチャーは専用のモジュールを自作する方針（daxial の issue #8）。
 - `zmk-dax-modules` は private。GitHub Actions のビルド（`build.yml`）は既定のトークンでは取得できないので、公開するか、取得用のトークンを用意するかを決める。
-- `esc_lang2` がスロット 0 に入ることを、書き込み後にアプリのマクロ一覧で確かめる。違う番号なら、keymap の `&esc_lang2_with_layer 4 0` の 0 を直す。既定値のマクロを増やすと、この前提が崩れる。
+- `esc_lang2` は settings reset の直後にスロット 0 へ入ることを確かめた。既定値のマクロを増やすと、この前提が崩れる。アプリで `esc_lang2` の名前を変えるとスロットが変わるので、その場合は keymap の `&esc_lang2_with_layer 4 0` の 0 を直す。
 
 ---
 
