@@ -30,3 +30,8 @@ config ZMK_OS_LAYER_PROFILE_4
     range -1 31
 
 endif
+
+config ZMK_TRACKBALL_SETTINGS
+    bool "Runtime trackball sensor settings (CPI) through custom settings"
+    default n
+    depends on ZMK_CUSTOM_SETTINGS && PAW3222
