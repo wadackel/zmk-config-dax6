@@ -103,6 +103,7 @@
     behaviors {
         esc_lang2_with_layer: esc_lang2_with_layer {
             compatible = "zmk,behavior-hold-tap";
+            display-name = "Layer-Macro";
             bindings = <&mo>, <&rmacro>;
             #binding-cells = <2>;
             tapping-term-ms = <160>;
