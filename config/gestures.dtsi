@@ -1,0 +1,82 @@
+// Trackball gestures, kept apart from the keymap so the native_sim tests under tests/ read the
+// same definitions the firmware does. Expects ANDROID, MAC_GESTURE and GESTURE to be defined.
+//
+// One processor in the trackball's base chain picks a profile by layer:
+//   - MacGesture held        -> macOS window management
+//   - Gesture held           -> browser navigation, or Android's Back while the Android
+//                               overlay is on (declared first so it wins on the shared layer)
+// The pointer stands still while a profile applies.
+
+#include <dt-bindings/dax/gesture.h>
+
+/ {
+    dax_gestures: dax_gestures {
+        compatible = "dax,input-processor-gesture";
+        #input-processor-cells = <0>;
+        stroke-size = <300>;
+        eager;
+        idle-timeout-ms = <150>;
+        gesture-cooldown-ms = <200>;
+
+        android {
+            layers = <GESTURE>;
+            require-layers = <ANDROID>;
+            suppress-movement;
+
+            g_back {
+                pattern = <DAX_GESTURE_LEFT>;
+                bindings = <&kp C_AC_BACK>;
+            };
+        };
+
+        browse {
+            layers = <GESTURE>;
+            suppress-movement;
+
+            g_back {
+                pattern = <DAX_GESTURE_LEFT>;
+                bindings = <&kp LG(LEFT_BRACKET)>;
+            };
+
+            g_fwd {
+                pattern = <DAX_GESTURE_RIGHT>;
+                bindings = <&kp LG(RIGHT_BRACKET)>;
+            };
+
+            g_top {
+                pattern = <DAX_GESTURE_UP>;
+                bindings = <&kp LG(UP_ARROW)>;
+            };
+
+            g_bottom {
+                pattern = <DAX_GESTURE_DOWN>;
+                bindings = <&kp LG(DOWN_ARROW)>;
+            };
+        };
+
+        mac {
+            layers = <MAC_GESTURE>;
+            suppress-movement;
+
+            mg_desktop {
+                pattern = <DAX_GESTURE_UP>;
+                bindings = <&kp F11>;
+            };
+
+            mg_mission_control {
+                pattern = <DAX_GESTURE_RIGHT>;
+                bindings = <&kp RC(UP_ARROW)>;
+            };
+
+            mg_app_expose {
+                pattern = <DAX_GESTURE_DOWN>;
+                bindings = <&kp RC(DOWN)>;
+            };
+
+            mg_spotlight {
+                pattern = <DAX_GESTURE_LEFT>;
+                bindings = <&kp LG(SPACE)>;
+            };
+        };
+    };
+};

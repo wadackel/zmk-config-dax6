@@ -1,0 +1,49 @@
+// The trackball's runtime-tunable input processors. Kept apart from the shield overlay so the
+// native_sim tests under tests/ exercise these exact definitions.
+
+#include <dt-bindings/input/input-event-codes.h>
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+  // Runtime-tunable replacements for the fixed transform/scaler processors. The
+  // properties are the compile-time defaults; values saved from a settings app
+  // (custom Studio RPC, subsystem `cormoran_rip`) take precedence.
+  //
+  // `tb_pointer` owns the sensor orientation. The module inverts by the axis an
+  // event had before the swap, so `xy-swap-enabled; x-invert;` is what
+  // `zip_xy_transform (XY_SWAP | Y_INVERT)` used to do. It runs first in the
+  // Scroll chain too, so its scale also multiplies scrolling.
+  tb_pointer: tb_pointer {
+    compatible = "zmk,input-processor-runtime";
+    processor-label = "pointer";
+    type = <INPUT_EV_REL>;
+    x-codes = <INPUT_REL_X>;
+    y-codes = <INPUT_REL_Y>;
+    xy-swap-enabled;
+    x-invert;
+    scale-multiplier = <1>;
+    scale-divisor = <1>;
+    track-remainders;
+    temp-layer-transparent-behavior = <&trans>;
+    temp-layer-kp-behavior = <&kp>;
+    temp-layer-keep-keycodes = <LEFT_CONTROL LEFT_SHIFT LEFT_ALT LEFT_GUI RIGHT_CONTROL RIGHT_SHIFT RIGHT_ALT RIGHT_GUI>;
+    #input-processor-cells = <0>;
+  };
+
+  // Replaces `zip_scroll_transform (Y_INVERT)` + `zip_scroll_scaler 1 64` on the Scroll layer.
+  tb_scroll: tb_scroll {
+    compatible = "zmk,input-processor-runtime";
+    processor-label = "scroll";
+    type = <INPUT_EV_REL>;
+    x-codes = <INPUT_REL_HWHEEL>;
+    y-codes = <INPUT_REL_WHEEL>;
+    y-invert;
+    scale-multiplier = <1>;
+    scale-divisor = <64>;
+    track-remainders;
+    temp-layer-transparent-behavior = <&trans>;
+    temp-layer-kp-behavior = <&kp>;
+    temp-layer-keep-keycodes = <LEFT_CONTROL LEFT_SHIFT LEFT_ALT LEFT_GUI RIGHT_CONTROL RIGHT_SHIFT RIGHT_ALT RIGHT_GUI>;
+    #input-processor-cells = <0>;
+  };
+};

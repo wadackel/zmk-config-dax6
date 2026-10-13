@@ -1,0 +1,63 @@
+#include "../common.dtsi"
+
+// Runtime combo defaults declared the way config/dax6.keymap declares them, on a 2x2 matrix.
+// `layers = <0 1>` is what keeps a combo alive while the Android overlay (layer 1) is active.
+/ {
+    runtime_combo_defaults {
+        compatible = "cormoran,runtime-combo-defaults";
+
+        both_layers {
+            slot = <0>;
+            bindings = <&kp X>;
+            key-positions = <0 1>;
+            layers = <0 1>;
+        };
+
+        base_only {
+            slot = <1>;
+            bindings = <&kp Y>;
+            key-positions = <1 2>;
+            layers = <0>;
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer {
+            bindings = <&kp A &kp B &kp C &tog 1>;
+        };
+        overlay_layer {
+            bindings = <&trans &trans &trans &trans>;
+        };
+    };
+};
+
+// The mock waits an event's delay before it and again before the next one, so each delay below is
+// the gap to the following event.
+//
+// Both combos on the base layer (X, Y) and a lone key (A); then with the overlay toggled on, the
+// two-layer combo still fires (X) and the base-only one falls through to its keys (B, C).
+&kscan {
+    events = <
+        ZMK_MOCK_PRESS(0,0,10)
+        ZMK_MOCK_PRESS(0,1,50)
+        ZMK_MOCK_RELEASE(0,0,10)
+        ZMK_MOCK_RELEASE(0,1,300)
+        ZMK_MOCK_PRESS(0,1,10)
+        ZMK_MOCK_PRESS(1,0,50)
+        ZMK_MOCK_RELEASE(0,1,10)
+        ZMK_MOCK_RELEASE(1,0,300)
+        ZMK_MOCK_PRESS(0,0,100)
+        ZMK_MOCK_RELEASE(0,0,300)
+        ZMK_MOCK_PRESS(1,1,50)
+        ZMK_MOCK_RELEASE(1,1,300)
+        ZMK_MOCK_PRESS(0,0,10)
+        ZMK_MOCK_PRESS(0,1,50)
+        ZMK_MOCK_RELEASE(0,0,10)
+        ZMK_MOCK_RELEASE(0,1,300)
+        ZMK_MOCK_PRESS(0,1,10)
+        ZMK_MOCK_PRESS(1,0,50)
+        ZMK_MOCK_RELEASE(0,1,10)
+        ZMK_MOCK_RELEASE(1,0,300)
+    >;
+};

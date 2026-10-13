@@ -8,7 +8,12 @@ zmk/
 zmk-driver-paw3222/
 zmk-pmw3610-driver/
 zmk-rgbled-widget/
-zmk-mouse-gesture/
+zmk-behavior-runtime-sensor-rotate/
+zmk-feature-custom-settings/
+zmk-module-runtime-input-processor/
+zmk-feature-runtime-combo/
+zmk-feature-runtime-macro/
+zmk-dax-modules/
 bootloader/
 *.uf2
 *.bin
@@ -19,10 +24,3 @@ bootloader/
 # Nix
 result
 result-*
-
-# Tester
-tools/tester/node_modules/
-tools/tester/dist/
-
-# Editor auto-backup snapshots (created by tools/tester on first save)
-config/*.keymap.*.bak

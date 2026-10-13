@@ -1,6 +1,8 @@
 #include "dax6.dtsi"
 #include <input/processors.dtsi>
 #include <dt-bindings/zmk/input_transform.h>
+#include <dt-bindings/zmk/keys.h>
+#include "trackball_processors.dtsi"
 
 &xiao_serial {
   status = "disabled";
@@ -26,50 +28,27 @@
   trackball_listener {
     compatible = "zmk,input-listener";
     device = <&trackball>;
-    // Both gesture processors live here because only the base chain propagates
-    // ZMK_INPUT_PROC_STOP, which is what `suppress-movement` relies on. They never
-    // collide: the macOS node reads X/Y, the Android node reads RX/RY, and each one
-    // ignores codes it was not configured for. The trailing mapper turns the Android
-    // chain's RX/RY back into X/Y so the listener can report them.
-    input-processors
-      = <&zip_xy_transform (INPUT_TRANSFORM_XY_SWAP | INPUT_TRANSFORM_Y_INVERT)>
-      , <&zip_mouse_gesture>
-      , <&zip_mouse_gesture_android>
-      , <&zip_gesture_axis_to_xy>
-      ;
+    // The gesture processor picks its profile by layer and stops the pointer by zeroing the
+    // movement, so it needs no override of its own and works under the ones below.
+    input-processors = <&tb_pointer>, <&dax_gestures>;
 
     scroll_override {
       layers = <6>;  // SCROLL layer
       process-next;
       input-processors
-        = <&zip_xy_transform (INPUT_TRANSFORM_XY_SWAP | INPUT_TRANSFORM_Y_INVERT)>
+        = <&tb_pointer>
         , <&zip_xy_to_scroll_mapper>
-        , <&zip_scroll_transform (INPUT_TRANSFORM_Y_INVERT)>
-        , <&zip_scroll_scaler 1 64>
+        , <&tb_scroll>
         ;
     };
 
-    mac_gesture_override {
-      layers = <8>;  // MAC_GESTURE layer
-      input-processors
-        = <&zip_xy_transform (INPUT_TRANSFORM_XY_SWAP | INPUT_TRANSFORM_Y_INVERT)>
-        , <&zip_mouse_gesture_mac>
-        , <&zip_xy_scaler 0 1>
-        ;
-    };
-
-    // Declared last so the Scroll and MacGesture overrides win when their layer is
-    // held; the Android layer is permanently active and would otherwise swallow them.
-    // `process-next` hands the event to the base chain, where the Android gesture
-    // node can actually suppress movement.
+    // Declared last and with `process-next`: the Android layer is permanently active while its
+    // BLE profile is selected, so it must neither shadow the Scroll override nor end the chain.
+    // It only flips the wheel the Scroll override produced; X/Y pass through untouched.
     android_override {
       layers = <1>;  // ANDROID layer
       process-next;
-      input-processors
-        = <&zip_scroll_transform (INPUT_TRANSFORM_Y_INVERT)>
-        , <&zip_xy_transform (INPUT_TRANSFORM_XY_SWAP | INPUT_TRANSFORM_Y_INVERT)>
-        , <&zip_xy_to_gesture_axis>
-        ;
+      input-processors = <&zip_scroll_transform (INPUT_TRANSFORM_Y_INVERT)>;
     };
   };
 };

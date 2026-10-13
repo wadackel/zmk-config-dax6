@@ -63,7 +63,7 @@ build-target TARGET="dax6_R": _require-nix
 
     echo "Building: {{TARGET}}"
 
-    west build -s zmk/app -b seeeduino_xiao_ble -d "build/{{TARGET}}" -- \
+    west build -s zmk/app -b xiao_ble//zmk -d "build/{{TARGET}}" -- \
       -DBOARD_ROOT="$PROJECT_ROOT" \
       -DSHIELD="$SHIELD" \
       ${SNIPPET:+-DSNIPPET="$SNIPPET"} \
@@ -80,18 +80,15 @@ build-target TARGET="dax6_R": _require-nix
       exit 1
     fi
 
-# Launch the local keymap editor (tools/tester) on http://localhost:5173/
-editor:
+# Run the native_sim tests under tests/ in the ZMK build container (needs Docker)
+test *TESTS:
     #!/usr/bin/env bash
     set -euo pipefail
-    cd tools/tester
-    if [ ! -d node_modules ]; then
-      echo "Installing tester deps (first run)..."
-      pnpm install --frozen-lockfile
+    if [ -z "{{TESTS}}" ]; then
+      tests/run.sh tests/*/
+    else
+      tests/run.sh {{TESTS}}
     fi
-    echo "Editor: http://localhost:5173/"
-    echo "Tester: http://localhost:5173/tester"
-    exec pnpm dev
 
 # Clean build artifacts
 clean:

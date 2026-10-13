@@ -1,0 +1,45 @@
+#include "../common.dtsi"
+#include "../../boards/shields/dax6/trackball_processors.dtsi"
+
+// With the Scroll layer held, raw movement becomes wheel movement at 1/64, vertical inverted.
+// 100 + 100 raw only adds up to three notches if remainders carry across reports.
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer {
+            bindings = <&mo 1 &none &none &none>;
+        };
+        scroll_layer {
+            bindings = <&trans &none &none &none>;
+        };
+    };
+
+    mock_trackball: mock_trackball {
+        compatible = "zmk,input-mock";
+        event-startup-delay = <1000>;
+        event-period = <20>;
+        events
+            = <INPUT_EV_REL INPUT_REL_X 100 1>
+            , <INPUT_EV_REL INPUT_REL_X 100 1>
+            , <INPUT_EV_REL INPUT_REL_Y (-128) 1>
+            ;
+    };
+
+    trackball_listener {
+        compatible = "zmk,input-listener";
+        device = <&mock_trackball>;
+        input-processors = <&tb_pointer>;
+
+        scroll_override {
+            layers = <1>;
+            process-next;
+            input-processors = <&tb_pointer>, <&zip_xy_to_scroll_mapper>, <&tb_scroll>;
+        };
+    };
+};
+
+&kscan {
+    // The mock waits an event's delay before it and again before the next one: pressed at 800 ms,
+    // released at 1600 ms, which brackets the reports at 1000-1040 ms.
+    events = <ZMK_MOCK_PRESS(0,0,800) ZMK_MOCK_RELEASE(0,0,10)>;
+};

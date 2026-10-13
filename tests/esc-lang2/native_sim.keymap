@@ -1,0 +1,45 @@
+#include "../common.dtsi"
+#include <behaviors/runtime_macro.dtsi>
+
+// The thumb key as config/dax6.keymap defines it: a hold-tap whose tap runs runtime macro slot 0,
+// and the compile-time default macro that is expected to land in that slot.
+/ {
+    esc_lang2 {
+        compatible = "cormoran,runtime-macro-default";
+        bindings = <&macro_tap>, <&kp ESCAPE &kp LANG2>;
+        wait-ms = <15>;
+    };
+
+    behaviors {
+        esc_lang2_with_layer: esc_lang2_with_layer {
+            compatible = "zmk,behavior-hold-tap";
+            bindings = <&mo>, <&rmacro>;
+            #binding-cells = <2>;
+            tapping-term-ms = <160>;
+            flavor = "balanced";
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer {
+            bindings = <&esc_lang2_with_layer 1 0 &kp A &none &none>;
+        };
+        function_layer {
+            bindings = <&trans &kp B &none &none>;
+        };
+    };
+};
+
+// Each delay is the gap to the following event (the mock also waits the first one before starting).
+// A tap (ESC then LANG2), then a hold with the second key pressed under it (B from layer 1).
+&kscan {
+    events = <
+        ZMK_MOCK_PRESS(0,0,50)
+        ZMK_MOCK_RELEASE(0,0,500)
+        ZMK_MOCK_PRESS(0,0,300)
+        ZMK_MOCK_PRESS(0,1,50)
+        ZMK_MOCK_RELEASE(0,1,50)
+        ZMK_MOCK_RELEASE(0,0,500)
+    >;
+};

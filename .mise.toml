@@ -1,4 +1,2 @@
 [tools]
 just = "latest"
-node = "24.13.1"
-pnpm = "10.30.1"

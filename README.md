@@ -1,195 +1,83 @@
-# DAX6 ZMK Configuration
+# dax6 ZMK configuration
 
-ZMK firmware configuration for DAX6 keyboard with local Nix-based build environment.
+ZMK firmware for the dax6 split keyboard: 44 keys, two rotary encoders, and a
+PAW3222 trackball on the right half, which is the central.
 
-## Features
+The firmware is built on the ZMK main line (Zephyr 4.1) from the `cormoran/zmk`
+fork, so most settings can be changed on the running keyboard with
+[daxial](https://github.com/wadackel/daxial) instead of rebuilding: key
+bindings, encoder rotation, trackball direction and speed, mouse gestures,
+combos and macros. Values in this repository are the defaults; what is saved
+from the app wins over them.
 
-- **Nix-based development environment** - Reproducible builds with flake.nix
-- **Fast local builds** - ~1 minute initial build, 15-30 seconds with ccache
-- **No Docker dependency** - Native Nix toolchain
-- **Just-based workflow** - Simple commands for common tasks
+`AGENTS.md` is the detailed guide (hardware, input chains, layers, pitfalls),
+and `docs/adr/` records why things are the way they are.
 
-## Prerequisites
+## Build
 
-### Required
-
-- [Nix](https://nixos.org/download.html) with flakes enabled
-
-### Flakes Setup
-
-If you haven't enabled flakes yet, add to `~/.config/nix/nix.conf`:
-
-```
-experimental-features = nix-command flakes
-```
-
-## Quick Start
-
-### 1. Clone and Enter Directory
+Needs [Nix](https://nixos.org/download.html) with flakes enabled. Commands run
+through the development shell, either inside `nix develop` or one at a time:
 
 ```bash
-git clone <your-repo-url>
-cd zmk-config-dax6
+nix develop --command just setup                  # once: fetch ZMK, Zephyr and the modules
+nix develop --command just build                  # both halves and the settings reset image
+nix develop --command just build-target dax6_R    # one target: dax6_R, dax6_L or settings_reset
+nix develop --command just clean                  # remove build output
+nix develop --command just pristine               # also remove the west workspace
 ```
 
-### 2. Enter Nix Development Shell
+| Output | For |
+|---|---|
+| `build/dax6_R.uf2` | Right half: central, trackball, ZMK Studio |
+| `build/dax6_L.uf2` | Left half: peripheral |
+| `build/settings_reset.uf2` | Erases stored settings, including BLE bonds and everything saved from the app |
+
+To flash, put a half into its bootloader and copy the matching file onto the
+drive that appears. After `settings_reset.uf2`, flash the half's own firmware
+again and re-pair it with each host; flash both halves if they no longer find
+each other.
+
+Do not run `nix flake update`: the toolchain depends on the pinned `nixpkgs`
+and on Zephyr SDK 0.17.0 (see "Nix のビルド環境で詰まりやすい点" in `AGENTS.md`).
+
+## Test
 
 ```bash
-nix develop
+just test                  # every native_sim test under tests/ (needs Docker)
+just test tests/combos     # one test
 ```
 
-### 3. Initialize Workspace
+The tests feed mocked key and pointer input to the real keymap and input
+chains and compare the HID reports that come out. Tests for the gesture
+recognizer itself live in
+[zmk-dax-modules](https://github.com/wadackel/zmk-dax-modules).
 
-```bash
-just setup
-```
+## Layout
 
-### 4. Build Firmware
+| Path | Contents |
+|---|---|
+| `config/` | Keymap (`dax6.keymap`), gesture defaults (`gestures.dtsi`), west manifest |
+| `boards/shields/dax6/` | Shield definition, per-half overlays and configuration |
+| `tests/` | native_sim tests and their runner |
+| `docs/adr/` | Architecture decision records |
+| `module/` | Empty Zephyr module files that keep this repository from picking up Zephyr's own |
 
-```bash
-just build
-```
+## Modules
 
-Build artifacts will be in `build/`:
-- `build/dax6_R.uf2` - Right hand (with trackball + ZMK Studio)
-- `build/dax6_L.uf2` - Left hand
-- `build/settings_reset.uf2` - Settings reset utility
+Pinned by commit in `config/west.yml`.
 
-## Common Commands
+| Module | Role |
+|---|---|
+| `cormoran/zmk` (`main+custom-studio-protocol`) | ZMK with custom Studio RPC |
+| `wadackel/zmk-dax-modules` | Mouse gestures, the per-profile OS layer, trackball CPI setting |
+| `zmk-driver-paw3222` | Trackball sensor driver |
+| `zmk-behavior-runtime-sensor-rotate` | Encoder bindings editable at runtime |
+| `zmk-module-runtime-input-processor` | Trackball direction and speed editable at runtime |
+| `zmk-feature-runtime-combo`, `zmk-feature-runtime-macro` | Combos and macros editable at runtime |
+| `zmk-feature-custom-settings` | Storage and RPC for the runtime settings |
+| `zmk-rgbled-widget` | Status LED |
 
-All commands should be run inside the Nix development environment (`nix develop`).
+## CI
 
-### Build Commands
-
-```bash
-# Build all targets
-just build
-
-# Build specific target
-just build-target dax6_R
-just build-target dax6_L
-```
-
-### Maintenance
-
-```bash
-# Clean build artifacts
-just clean
-
-# Setup workspace (after git pull or clean)
-just setup
-
-# Check ccache statistics
-ccache -s
-```
-
-### Non-Interactive Execution
-
-You can run any command without entering an interactive shell:
-
-```bash
-nix develop --command just build
-nix develop --command just build-target dax6_R
-```
-
-This is useful for CI scripts or automated tools.
-
-## Apple Silicon Notes
-
-The build environment is configured for native Apple Silicon (aarch64-darwin) builds. If you encounter SDK-related errors, you can run using Rosetta translation:
-
-### Using Rosetta (if needed)
-
-Use the `--system` flag to force x86_64 emulation:
-
-```bash
-nix develop --system x86_64-darwin
-```
-
-Then run your build commands as normal:
-
-```bash
-just setup
-just build
-```
-
-## Project Structure
-
-```
-.
-├── flake.nix              # Nix development environment definition
-├── flake.lock             # Locked dependency versions
-├── config/                # ZMK configuration files
-│   ├── west.yml          # West manifest
-│   └── dax6.keymap       # Keymap definition
-├── boards/                # Board definitions
-│   └── shields/dax6/     # DAX6 shield configuration
-└── build/                 # Build output (git-ignored)
-```
-
-## Build Performance
-
-| Build Type | Time | Notes |
-|------------|------|-------|
-| Initial build | ~1 minute | First build after setup |
-| Incremental build | 15-30 seconds | With ccache enabled |
-| Clean build | ~1 minute | After `just clean` |
-
-## Troubleshooting
-
-### "Must run inside nix develop environment"
-
-Enter the Nix development shell:
-
-```bash
-nix develop
-```
-
-### Build fails with SDK errors on Apple Silicon
-
-Switch to x86_64 mode (Rosetta):
-
-```bash
-nix develop --system x86_64-darwin
-```
-
-Then run setup and build:
-
-```bash
-just setup
-just build
-```
-
-### "pkg_resources" module not found
-
-This should be resolved in flake.nix. If the error persists, ensure you're using the latest flake.lock:
-
-```bash
-nix flake update
-```
-
-### west workspace issues
-
-Re-initialize the workspace:
-
-```bash
-rm -rf .west modules zmk zephyr bootloader
-just setup
-```
-
-## Custom Modules
-
-This configuration uses the following custom ZMK modules:
-
-- **zmk-pmw3610-driver** - Trackball sensor driver (PMW3610)
-- **zmk-rgbled-widget** - RGB LED widget support
-
-These are automatically fetched during `just setup` via west.yml.
-
-## GitHub Actions
-
-GitHub Actions continue to use the official ZMK Docker-based workflow for consistency and compatibility. Local builds use Nix for speed.
-
-## License
-
-[Your License Here]
+`.github/workflows/build.yml` builds the targets listed in `build.yaml` with
+ZMK's reusable workflow, pinned to a commit.

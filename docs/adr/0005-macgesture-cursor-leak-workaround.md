@@ -60,11 +60,11 @@ upstream の根治は `return 0;` を `return ret;` に変える1行修正で済
 
 ## Status
 
-`Accepted`（2026-06-20）
+`Superseded`（2026-06-20）
 
 ## Superseded-by
 
--
+ADR-0014
 
 ## Follow-ups
 

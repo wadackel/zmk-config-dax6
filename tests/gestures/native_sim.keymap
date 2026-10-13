@@ -1,0 +1,65 @@
+#include "../common.dtsi"
+
+#define ANDROID 1
+#define MAC_GESTURE 8
+#define GESTURE 9
+
+#include "../../config/gestures.dtsi"
+
+#define EMPTY_LAYER(name) name { bindings = <&trans &trans &trans &trans>; }
+
+// The real gesture profiles on a keymap with the same layer numbers. The same leftward stroke is
+// drawn four times: with the Gesture key held (Cmd+[), with the MacGesture key held (Cmd+Space),
+// with the Gesture key held while the Android overlay is on (Android's Back), and with no key
+// (plain pointer movement, the overlay alone enables nothing).
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer {
+            bindings = <&mo GESTURE &mo MAC_GESTURE &tog ANDROID &none>;
+        };
+        EMPTY_LAYER(layer_1);
+        EMPTY_LAYER(layer_2);
+        EMPTY_LAYER(layer_3);
+        EMPTY_LAYER(layer_4);
+        EMPTY_LAYER(layer_5);
+        EMPTY_LAYER(layer_6);
+        EMPTY_LAYER(layer_7);
+        EMPTY_LAYER(layer_8);
+        EMPTY_LAYER(layer_9);
+    };
+
+    mock_trackball: mock_trackball {
+        compatible = "zmk,input-mock";
+        event-startup-delay = <1000>;
+        event-period = <1000>;
+        events
+            = <INPUT_EV_REL INPUT_REL_X (-300) 1>
+            , <INPUT_EV_REL INPUT_REL_X (-300) 1>
+            , <INPUT_EV_REL INPUT_REL_X (-300) 1>
+            , <INPUT_EV_REL INPUT_REL_X (-300) 1>
+            ;
+    };
+
+    trackball_listener {
+        compatible = "zmk,input-listener";
+        device = <&mock_trackball>;
+        input-processors = <&dax_gestures>;
+    };
+};
+
+// Reports arrive at 1000, 2000, 3000 and 4000 ms. Each delay is the gap to the next key event:
+// Gesture held 700-1400, MacGesture held 1500-2500, Android toggled on at 2600,
+// Gesture held 2710-3410, nothing held at 4000.
+&kscan {
+    events = <
+        ZMK_MOCK_PRESS(0,0,700)
+        ZMK_MOCK_RELEASE(0,0,100)
+        ZMK_MOCK_PRESS(0,1,1000)
+        ZMK_MOCK_RELEASE(0,1,100)
+        ZMK_MOCK_PRESS(1,0,10)
+        ZMK_MOCK_RELEASE(1,0,100)
+        ZMK_MOCK_PRESS(0,0,700)
+        ZMK_MOCK_RELEASE(0,0,800)
+    >;
+};
