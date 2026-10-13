@@ -375,6 +375,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 
 - combo は `config/dax6.keymap` の `runtime_combo_defaults`（`cormoran,runtime-combo-defaults`）に書く。`zmk,combos` のノードは無い。レイヤーの絞り込みが「最上位のアクティブレイヤー 1 つ」しか見ない点は変わらないので、`layers = <0 1>` と書く
 - マクロは実行時マクロ（`&rmacro <slot>`）で、`zmk,behavior-macro` のノードは無い。`esc_lang2` は `cormoran,runtime-macro-default` の既定値で、`esc_lang2_with_layer` の tap 側が `&rmacro` を呼ぶ。keymap の `&esc_lang2_with_layer 4 0` の `0` がスロット番号
+- **保存したことのない既定値のマクロは、アプリの Discard で devicetree の内容に戻る。** flash に記録が無いので、設定レジストリの discard だけでは編集が残る。`zmk-dax-modules` の `src/macro_defaults.c`（`CONFIG_ZMK_DAX_MACRO_DEFAULTS`）が書き戻す。`tests/macro/discard-default`（`zmk-dax-modules` 側）が確かめている
 - **起動時に出る Studio の通知は、合計 256 バイトまでしか溜められない。** シリアルポートを開いているプログラムが無いと通知は送信バッファ（`CONFIG_ZMK_STUDIO_RPC_TX_BUF_SIZE=256`）に溜まり、満杯になると送信が戻らず、キー入力ごとキーボードが止まる（`zmk/app/src/studio/rpc.c` の `rpc_tx_buffer_write` が空きを待ち続ける）。既定値のマクロは起動のたびに 1 個あたり通知 2 件（`esc_lang2` で計 108 バイト）を出すので、既定値のマクロを増やすときはバッファも広げる。ジェスチャーの既定値は通知を出さない（`zmk-dax-modules` 側で抑止している）
 - **既定値のスロット番号はビルド時に決まらない。** 最初に作られたときの空きスロットに入る。既定値が `esc_lang2` だけなら settings reset の直後はスロット 0 に入る想定。既定値のマクロを足したり、settings reset をしたりしたあとは、アプリのマクロ一覧で `esc_lang2` の番号を確かめる。ずれていると ESC / LANG2 のキーが効かない
 
