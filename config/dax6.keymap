@@ -55,11 +55,11 @@
 // 16 ms, and DYA Studio reuses a layer's current tap-ms when it rebinds, so the
 // binding default of 5 would leave a later &msc silent.
 / {
-    // Compile-time defaults for the runtime combos (`cormoran__runtime_combo`). A
-    // slot edited or deleted from a settings app keeps that stored value, and the
-    // layer filter still looks at the highest active layer only, hence `<0 1>`.
+    // Compile-time defaults for the runtime combos (`dax_combo`). A slot edited or
+    // deleted from a settings app keeps that stored value, and the layer filter
+    // still looks at the highest active layer only, hence `<0 1>`.
     runtime_combo_defaults {
-        compatible = "cormoran,runtime-combo-defaults";
+        compatible = "dax,runtime-combo-defaults";
 
         to_device {
             slot = <0>;
@@ -87,6 +87,16 @@
             bindings = <&tog 7>;
             key-positions = <11 23 37>;
             layers = <0 1>;
+        };
+
+        // TAB for cmd+tab with the left thumb's cmd. Off for 150 ms after a
+        // typed key, so a quick "er" in a word stays letters.
+        er_tab {
+            slot = <4>;
+            bindings = <&kp TAB>;
+            key-positions = <3 4>;
+            layers = <0 1>;
+            require-prior-idle-ms = <150>;
         };
     };
 

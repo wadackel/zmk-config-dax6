@@ -69,11 +69,11 @@ Pinned by commit in `config/west.yml`.
 | Module | Role |
 |---|---|
 | `cormoran/zmk` (`main+custom-studio-protocol`) | ZMK with custom Studio RPC |
-| `wadackel/zmk-dax-modules` | Mouse gestures, the per-profile OS layer, trackball CPI setting |
+| `wadackel/zmk-dax-modules` | Mouse gestures, the per-profile OS layer, trackball CPI setting, combos editable at runtime |
 | `zmk-driver-paw3222` | Trackball sensor driver |
 | `zmk-behavior-runtime-sensor-rotate` | Encoder bindings editable at runtime |
 | `zmk-module-runtime-input-processor` | Trackball direction and speed editable at runtime |
-| `zmk-feature-runtime-combo`, `zmk-feature-runtime-macro` | Combos and macros editable at runtime |
+| `zmk-feature-runtime-macro` | Macros editable at runtime |
 | `zmk-feature-custom-settings` | Storage and RPC for the runtime settings |
 | `zmk-rgbled-widget` | Status LED |
 

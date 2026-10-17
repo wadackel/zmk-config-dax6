@@ -51,11 +51,11 @@ ZMK を main 系（Zephyr 4.1）へ移し、設定モジュールを 4 つ追加
 
 ## Status
 
-`Draft` (2026-10-11)
+`Draft` (2026-10-11)。combo の部分（`zmk-feature-runtime-combo` の採用）は 2026-10-17 に ADR-0015 で覆した
 
 ## Superseded-by
 
--
+`ADR-0015`（combo の部分のみ）
 
 ## Follow-ups
 

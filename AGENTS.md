@@ -58,7 +58,7 @@ ZMK_TESTS_RESYNC=1 just test    # west update のあと
 - `boards/shields/dax6/` - Shield定義（dtsi, overlay, conf, Kconfig）
 - `tests/` - native_sim のテストと実行スクリプト
 - `module/` - 空の CMakeLists.txt / Kconfig。west が Zephyr を `./zephyr` に取得するため、明示しないとこの repo の Zephyr モジュール定義が Zephyr 本体の `zephyr/CMakeLists.txt` を拾ってしまう
-- dax 系で共有する自作モジュール（マウスジェスチャー、OS レイヤー、トラックボールの CPI 設定）は別 repo [`wadackel/zmk-dax-modules`](https://github.com/wadackel/zmk-dax-modules)（public、英語で統一）にあり、`config/west.yml` から SHA で参照する
+- dax 系で共有する自作モジュール（マウスジェスチャー、OS レイヤー、トラックボールの CPI 設定、実行時 combo）は別 repo [`wadackel/zmk-dax-modules`](https://github.com/wadackel/zmk-dax-modules)（public、英語で統一）にあり、`config/west.yml` から SHA で参照する
 - `config/` - キーマップ（`dax6.keymap`）、`west.yml`、ZMK Studio用 JSON
 - `docs/` - 詳細な学びのドキュメント
 - `docs/adr/` - アーキテクチャ意思決定記録（ADR）
@@ -298,6 +298,8 @@ dax6 はこの方法を使っている。BLE profile の切り替えに連動し
   revision: 1fc72aaff7a42bd533c1f4c9b3f23c5317c745f4  # main+custom-studio-protocol as of 2026-07-22
 ```
 
+- `zmk` を更新するときは、`zmk-dax-modules` の `src/combo/combo_engine.c` を新しい `app/src/combo.c` と比べる。combo の判定は `1fc72aaf` の `combo.c` の写し。`zmk-dax-modules` の CMake は `app` のソースの `src/combo.c` を目印に並べ替えるので、名前が変わるとビルドが止まる（[ADR-0015](./docs/adr/0015-dax-runtime-combo.md)）
+
 - ボード名は `xiao_ble//zmk`（v0.3 系の `seeeduino_xiao_ble` から変わった）
 - fork は upstream main から遅れる。2026-10-11 時点で 59 コミット差があり、split の入力レポートのデッドロック修正（upstream #3110）などが未取り込み
 - `main+dya` は hold-tap・tap-dance・`behavior_input_two_axis.c`・activity・keymap まで変更している。既存の挙動への影響が読めないので使わない
@@ -351,7 +353,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 | キー割当・レイヤー名 | 公式 ZMK Studio の RPC |
 | エンコーダーの回転割当（レイヤー別・方向別） | `zmk-behavior-runtime-sensor-rotate`（`cormoran_rsr`） |
 | トラックボールの向き・倍率、Scroll レイヤーの向き・粗さ | `zmk-module-runtime-input-processor`（`cormoran_rip`） |
-| combo | `zmk-feature-runtime-combo`（`cormoran__runtime_combo`） |
+| combo | `zmk-dax-modules` の `src/combo/`（`dax_combo`、値は custom-settings 経由）。DYA Studio からは編集できない |
 | マクロ | `zmk-feature-runtime-macro`（`cormoran__runtime_macro`） |
 | マウスジェスチャー（調整値、組のレイヤー、パターンと割当） | `zmk-dax-modules`（`dax_gesture`、値は custom-settings 経由） |
 | PAW3222 の CPI | `zmk-dax-modules` の `src/trackball_settings.c`（`dax_trackball`、値は custom-settings 経由） |
@@ -373,7 +375,12 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 
 ### combo とマクロ
 
-- combo は `config/dax6.keymap` の `runtime_combo_defaults`（`cormoran,runtime-combo-defaults`）に書く。`zmk,combos` のノードは無い。レイヤーの絞り込みが「最上位のアクティブレイヤー 1 つ」しか見ない点は変わらないので、`layers = <0 1>` と書く
+- combo は `config/dax6.keymap` の `runtime_combo_defaults`（`dax,runtime-combo-defaults`）に書く。`zmk,combos` のノードは無い。レイヤーの絞り込みが「最上位のアクティブレイヤー 1 つ」しか見ない点は変わらないので、`layers = <0 1>` と書く
+- **combo の判定は ZMK の `src/combo.c` の写しで、`zmk,combos` と同じに振る舞う。** hold-tap の後、keymap の前でキーを受け取るので、cmd の親指キー（`&mt`）を押してすぐ combo を押しても cmd が掛かる。判断根拠は [ADR-0015](./docs/adr/0015-dax-runtime-combo.md)
+  - スロット 4 の `er_tab`（E+R → TAB）が cmd+tab 用。cmd の親指キーを押さえたまま E+R を押す。逆送りは shift の親指キーも押さえる
+  - `er_tab` は文字を打ってから 150ms の間は効かない（`require-prior-idle-ms`）。その間に cmd を押さえて E+R を押すと cmd+E / cmd+R になる。値は daxial で変えられる
+  - combo を押している間に daxial で保存した変更は、キーを全部離してから効く
+  - cormoran の `zmk-feature-runtime-combo` で保存した combo は引き継いでいない。flash に残るが読まれない
 - マクロは実行時マクロ（`&rmacro <slot>`）で、`zmk,behavior-macro` のノードは無い。`esc_lang2` は `cormoran,runtime-macro-default` の既定値で、`esc_lang2_with_layer` の tap 側が `&rmacro` を呼ぶ。keymap の `&esc_lang2_with_layer 4 0` の `0` がスロット番号
 - **保存したことのない既定値のマクロは、アプリの Discard で devicetree の内容に戻る。** flash に記録が無いので、設定レジストリの discard だけでは編集が残る。`zmk-dax-modules` の `src/macro_defaults.c`（`CONFIG_ZMK_DAX_MACRO_DEFAULTS`）が書き戻す。`tests/macro/discard-default`（`zmk-dax-modules` 側）が確かめている
 - **起動時に出る Studio の通知は、合計 256 バイトまでしか溜められない。** シリアルポートを開いているプログラムが無いと通知は送信バッファ（`CONFIG_ZMK_STUDIO_RPC_TX_BUF_SIZE=256`）に溜まり、満杯になると送信が戻らず、キー入力ごとキーボードが止まる（`zmk/app/src/studio/rpc.c` の `rpc_tx_buffer_write` が空きを待ち続ける）。既定値のマクロは起動のたびに 1 個あたり通知 2 件（`esc_lang2` で計 108 バイト）を出すので、既定値のマクロを増やすときはバッファも広げる。ジェスチャーの既定値は通知を出さない（`zmk-dax-modules` 側で抑止している）
@@ -413,7 +420,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 
 ### Android オーバーレイレイヤー (= 1)
 
-`CONFIG_ZMK_OS_LAYER=y` + `CONFIG_ZMK_OS_LAYER_PROFILE_3=1` (`dax6_R.conf`) により、BLE プロファイル 3 を選ぶと `zmk-dax-modules` の `src/os_layer.c` がこのレイヤーを常時アクティブにする。詳細と判断根拠は [ADR-0010](./docs/adr/0010-ble-profile-driven-os-overlay-layer.md)。
+`CONFIG_ZMK_OS_LAYER=y` + `CONFIG_ZMK_OS_LAYER_PROFILE_3=1` (`dax6_R.conf`) により、BLE プロファイル 3 を選ぶと `zmk-dax-modules` の `src/os_layer.c` がこのレイヤーを常時アクティブにする。USB で Mac につないでいても、選んでいる BLE プロファイルが 3 なら有効なままで、cmd の親指キーが HYPER になり cmd+tab が効かない。詳細と判断根拠は [ADR-0010](./docs/adr/0010-ble-profile-driven-os-overlay-layer.md)。
 
 レイヤーを追加・並べ替えるときに壊れやすい点:
 

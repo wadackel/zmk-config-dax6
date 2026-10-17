@@ -4,7 +4,7 @@
 // `layers = <0 1>` is what keeps a combo alive while the Android overlay (layer 1) is active.
 / {
     runtime_combo_defaults {
-        compatible = "cormoran,runtime-combo-defaults";
+        compatible = "dax,runtime-combo-defaults";
 
         both_layers {
             slot = <0>;

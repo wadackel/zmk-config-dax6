@@ -24,9 +24,6 @@ manifest:
     - name: zmk-module-runtime-input-processor
       remote: cormoran
       revision: decf628d7ce5ed95b520c650824c28ea9de649c1  # main as of 2026-09-27
-    - name: zmk-feature-runtime-combo
-      remote: cormoran
-      revision: d9490e7b5d41c516221d131241009e81740efcee  # main as of 2026-07-18
     - name: zmk-feature-runtime-macro
       remote: cormoran
       revision: 38530962eb7061b60efcb98e84585cfb1f0cb6de  # main as of 2026-07-18
@@ -38,6 +35,6 @@ manifest:
       revision: e6b467792a1dabef8cfa5c9fd26bfefc9c16662b  # main as of 2026-07-09
     - name: zmk-dax-modules
       remote: wadackel
-      revision: 037907666fda50d2737d2f3ccabc27290959e745  # main as of 2026-10-13
+      revision: babdfba3e6301f674d458ef2c63f5d97dd94a33a  # main as of 2026-10-17
   self:
     path: config
