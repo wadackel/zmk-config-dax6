@@ -2,7 +2,7 @@
 
 #include <behaviors.dtsi>
 #include <behaviors/runtime-sensor-rotate.dtsi>
-#include <behaviors/runtime_macro.dtsi>
+#include <behaviors/dax_macro.dtsi>
 #include <dt-bindings/zmk/bt.h>
 #include <dt-bindings/zmk/input_transform.h>
 #include <dt-bindings/zmk/keys.h>
@@ -100,21 +100,24 @@
         };
     };
 
-    // Compile-time default for runtime macro slot 0 (`cormoran__runtime_macro`), so a
-    // settings app can edit it. A default takes the first free slot when it is first
-    // created; with this as the only default that is slot 0 after a settings reset.
-    // `esc_lang2_with_layer` passes that slot number as its tap parameter.
-    esc_lang2 {
-        compatible = "cormoran,runtime-macro-default";
-        bindings = <&macro_tap>, <&kp ESCAPE &kp LANG2>;
-        wait-ms = <15>;
+    // Compile-time defaults for the macros (`dax_macro`), each in a fixed slot. A slot
+    // edited or deleted from a settings app keeps that stored value.
+    // `esc_lang2_with_layer` passes the slot number of esc_lang2 as its tap parameter.
+    runtime_macro_defaults {
+        compatible = "dax,runtime-macro-defaults";
+
+        esc_lang2 {
+            slot = <0>;
+            bindings = <&macro_tap>, <&kp ESCAPE &kp LANG2>;
+            wait-ms = <15>;
+        };
     };
 
     behaviors {
         esc_lang2_with_layer: esc_lang2_with_layer {
             compatible = "zmk,behavior-hold-tap";
             display-name = "Layer-Macro";
-            bindings = <&mo>, <&rmacro>;
+            bindings = <&mo>, <&dax_macro>;
             #binding-cells = <2>;
             tapping-term-ms = <160>;
             flavor = "balanced";

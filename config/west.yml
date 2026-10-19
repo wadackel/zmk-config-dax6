@@ -24,9 +24,6 @@ manifest:
     - name: zmk-module-runtime-input-processor
       remote: cormoran
       revision: decf628d7ce5ed95b520c650824c28ea9de649c1  # main as of 2026-09-27
-    - name: zmk-feature-runtime-macro
-      remote: cormoran
-      revision: 38530962eb7061b60efcb98e84585cfb1f0cb6de  # main as of 2026-07-18
     - name: zmk-driver-paw3222
       remote: sekigon-gonnoc
       revision: df652881be2520bde4f64ab6ca35e4c5708f4f9b  # main as of 2026-06-15, builds against ZMK main
