@@ -1,5 +1,11 @@
 name: Build ZMK firmware
-on: [push, pull_request, workflow_dispatch]
+# push only on main: a PR branch already builds through pull_request, and the two runs of one
+# commit race on deleting the merged artifacts.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
