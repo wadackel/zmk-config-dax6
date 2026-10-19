@@ -1,5 +1,11 @@
 name: Build ZMK firmware
-on: [push, pull_request, workflow_dispatch]
+# push only on main: a PR branch already builds through pull_request, so a push to it would
+# build it twice.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
