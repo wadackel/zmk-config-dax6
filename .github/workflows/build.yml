@@ -1,6 +1,6 @@
 name: Build ZMK firmware
-# push only on main: a PR branch already builds through pull_request, and the two runs of one
-# commit race on deleting the merged artifacts.
+# push only on main: a PR branch already builds through pull_request, so a push to it would
+# build it twice.
 on:
   push:
     branches: [main]
