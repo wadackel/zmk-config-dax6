@@ -432,7 +432,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 ## CI / デプロイ
 
 ### ファームウェアビルド
-- `.github/workflows/build.yml` - push/PR/手動トリガーで実行
+- `.github/workflows/build.yml` - main への push・PR・手動トリガーで実行（PR のブランチは pull_request だけで 1 回ビルドする）
 - ZMK の reusable workflow（`zmkfirmware/zmk/.github/workflows/build-user-config.yml` を upstream main の SHA で固定）を使用。workflow 自体は upstream のものだが、ビルドする ZMK は `config/west.yml` が指す cormoran fork
 - ビルド対象は `build.yaml` で定義（`build.yml` と混同しないこと）
 
