@@ -387,7 +387,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
   - cormoran の `zmk-feature-runtime-combo` で保存した combo は引き継いでいない。flash に残るが読まれない
 - マクロは `&dax_macro <slot>` で、`zmk,behavior-macro` のノードは無い。`esc_lang2` は `config/dax6.keymap` の `runtime_macro_defaults`（`dax,runtime-macro-defaults`）にある既定値で、`esc_lang2_with_layer` の tap 側が `&dax_macro` を呼ぶ。keymap の `&esc_lang2_with_layer 4 0` の `0` が `esc_lang2` の `slot`
 - **マクロのスロットは固定。** 既定値は `slot` で置き場所が決まり、アプリで名前を変えてもスロットは変わらない。既定値を足すときは空いている番号を `slot` に書く
-- **マクロの作成・名前の変更・削除も、手順の編集と同じく Save まで RAM にある。** Discard で戻り、保存したことのない既定値も devicetree の内容に戻る。既定値は起動時に書き込まれない
+- **マクロの作成・名前の変更・削除も、手順の編集と同じく Save まで RAM にある。** Discard で戻り、保存したことのない既定値も devicetree の内容に戻る。既定値のマクロは削除できず、reset で devicetree の内容に戻す。既定値は起動時に書き込まれない
 - cormoran の `zmk-feature-runtime-macro` で保存したマクロは引き継いでいない。flash に残るが読まれない
 - **起動時に出る Studio の通知は、合計 256 バイトまでしか溜められない。** シリアルポートを開いているプログラムが無いと通知は送信バッファ（`CONFIG_ZMK_STUDIO_RPC_TX_BUF_SIZE=256`）に溜まり、満杯になると送信が戻らず、キー入力ごとキーボードが止まる（`zmk/app/src/studio/rpc.c` の `rpc_tx_buffer_write` が空きを待ち続ける）。マクロとジェスチャーの既定値は通知を出さない
 
