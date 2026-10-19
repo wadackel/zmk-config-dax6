@@ -27,6 +27,10 @@ nix develop --command just pristine
 - `build/dax6_L.uf2` - 左手側
 - `build/settings_reset.uf2` - 設定リセット用
 
+## 書き込み
+
+右手側（central）は daxial の `pnpm flash <uf2>` で、bootloader キーを押さずに書き込める。キーボードが報告する名前と UF2 のファイル名の先頭が一致しないと何も送らない。再起動だけなら `pnpm flash --restart --keyboard dax6`。どちらも、書き込み済みのファームウェアに `dax_system`（`CONFIG_ZMK_DAX_SYSTEM_RPC`）が入っていることが前提で、シリアルポートを他のプログラムが掴んでいないこと。左手側は Studio を持たないので、従来どおり bootloader に入れて UF2 をコピーする。
+
 ## テスト（シミュレーター）
 
 `tests/` に、ZMK の native_sim で動かすテストがある。模擬のキー入力とポインター入力を流し、出てくる HID レポートを期待値（`keycode_events.snapshot`）と比べる。実機なしで、keymap とチェーンの「結果」を確かめられる。
