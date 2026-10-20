@@ -15,9 +15,6 @@ manifest:
       remote: cormoran
       revision: 1fc72aaff7a42bd533c1f4c9b3f23c5317c745f4  # main+custom-studio-protocol as of 2026-07-22 (ZMK main + custom Studio RPC)
       import: app/west.yml
-    - name: zmk-behavior-runtime-sensor-rotate
-      remote: cormoran
-      revision: 8b1125ed676c1f5e14145d217984f33d0ebdcef4  # main as of 2026-07-06
     - name: zmk-driver-paw3222
       remote: sekigon-gonnoc
       revision: df652881be2520bde4f64ab6ca35e4c5708f4f9b  # main as of 2026-06-15, builds against ZMK main
@@ -26,6 +23,6 @@ manifest:
       revision: e6b467792a1dabef8cfa5c9fd26bfefc9c16662b  # main as of 2026-07-09
     - name: zmk-dax-modules
       remote: wadackel
-      revision: 6e0455a1bcfead0ad041348850c3ab84c92dc1a1  # main as of 2026-10-20
+      revision: 4751585588c33bc5e95b9e4ba854920d4ae7997d  # main as of 2026-10-20
   self:
     path: config
