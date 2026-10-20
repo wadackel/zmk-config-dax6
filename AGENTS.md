@@ -44,7 +44,7 @@ ZMK_TESTS_RESYNC=1 just test    # west update のあと
 
 | テスト | 確かめていること |
 |---|---|
-| `esc-lang2` | 親指キーの tap が ESC → LANG2 を出し、hold がレイヤーを切り替える（実行時マクロの既定値がスロット 0 に入る） |
+| `esc-lang2` | 親指キーの tap が ESC → LANG2 を出し、hold がレイヤーを切り替える（tap はスロット 0 のマクロの既定値を `&dax_macro` で再生する） |
 | `combos` | 実行時 combo の既定値が発火する。`layers = <0 1>` の combo は上のレイヤーが有効でも発火し、`<0>` だけのものは発火しない |
 | `trackball-pointer` / `-fixed` | `tb_pointer` の出力が、置き換え前の `zip_xy_transform (XY_SWAP \| Y_INVERT)` と同じ |
 | `gestures` | `config/gestures.dtsi` の組が、保持しているレイヤーに応じて切り替わる（Gesture → 戻る、MacGesture → Spotlight、Gesture + Android → Android の戻る、何も保持しない → カーソル移動） |
@@ -358,7 +358,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 | エンコーダーの回転割当（レイヤー別・方向別） | `zmk-behavior-runtime-sensor-rotate`（`cormoran_rsr`） |
 | トラックボールの向き・倍率、Scroll レイヤーの向き・粗さ | `zmk-module-runtime-input-processor`（`cormoran_rip`） |
 | combo | `zmk-dax-modules` の `src/combo/`（`dax_combo`、値は custom-settings 経由）。DYA Studio からは編集できない |
-| マクロ | `zmk-feature-runtime-macro`（`cormoran__runtime_macro`） |
+| マクロ | `zmk-dax-modules` の `src/macro/`（`dax_macro`）。DYA Studio からは編集できない |
 | マウスジェスチャー（調整値、組のレイヤー、パターンと割当） | `zmk-dax-modules`（`dax_gesture`、値は custom-settings 経由） |
 | PAW3222 の CPI | `zmk-dax-modules` の `src/trackball_settings.c`（`dax_trackball`、値は custom-settings 経由） |
 
@@ -385,10 +385,11 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
   - `er_tab` は文字を打ってから 150ms の間は効かない（`require-prior-idle-ms`）。その間に cmd を押さえて E+R を押すと cmd+E / cmd+R になる。値は daxial で変えられる
   - combo を押している間に daxial で保存した変更は、キーを全部離してから効く
   - cormoran の `zmk-feature-runtime-combo` で保存した combo は引き継いでいない。flash に残るが読まれない
-- マクロは実行時マクロ（`&rmacro <slot>`）で、`zmk,behavior-macro` のノードは無い。`esc_lang2` は `cormoran,runtime-macro-default` の既定値で、`esc_lang2_with_layer` の tap 側が `&rmacro` を呼ぶ。keymap の `&esc_lang2_with_layer 4 0` の `0` がスロット番号
-- **保存したことのない既定値のマクロは、アプリの Discard で devicetree の内容に戻る。** flash に記録が無いので、設定レジストリの discard だけでは編集が残る。`zmk-dax-modules` の `src/macro_defaults.c`（`CONFIG_ZMK_DAX_MACRO_DEFAULTS`）が書き戻す。`tests/macro/discard-default`（`zmk-dax-modules` 側）が確かめている
-- **起動時に出る Studio の通知は、合計 256 バイトまでしか溜められない。** シリアルポートを開いているプログラムが無いと通知は送信バッファ（`CONFIG_ZMK_STUDIO_RPC_TX_BUF_SIZE=256`）に溜まり、満杯になると送信が戻らず、キー入力ごとキーボードが止まる（`zmk/app/src/studio/rpc.c` の `rpc_tx_buffer_write` が空きを待ち続ける）。既定値のマクロは起動のたびに 1 個あたり通知 2 件（`esc_lang2` で計 108 バイト）を出すので、既定値のマクロを増やすときはバッファも広げる。ジェスチャーの既定値は通知を出さない（`zmk-dax-modules` 側で抑止している）
-- **既定値のスロット番号はビルド時に決まらない。** 最初に作られたときの空きスロットに入る。既定値が `esc_lang2` だけなら settings reset の直後はスロット 0 に入る想定。既定値のマクロを足したり、settings reset をしたりしたあとは、アプリのマクロ一覧で `esc_lang2` の番号を確かめる。ずれていると ESC / LANG2 のキーが効かない
+- マクロは `&dax_macro <slot>` で、`zmk,behavior-macro` のノードは無い。`esc_lang2` は `config/dax6.keymap` の `runtime_macro_defaults`（`dax,runtime-macro-defaults`）にある既定値で、`esc_lang2_with_layer` の tap 側が `&dax_macro` を呼ぶ。keymap の `&esc_lang2_with_layer 4 0` の `0` が `esc_lang2` の `slot`
+- **マクロのスロットは固定。** 既定値は `slot` で置き場所が決まり、アプリで名前を変えてもスロットは変わらない。既定値を足すときは空いている番号を `slot` に書く
+- **マクロの作成・名前の変更・削除も、手順の編集と同じく Save まで RAM にある。** Discard で戻り、保存したことのない既定値も devicetree の内容に戻る。既定値のマクロは削除できず、reset で devicetree の内容に戻す。既定値は起動時に書き込まれない
+- cormoran の `zmk-feature-runtime-macro` で保存したマクロは引き継いでいない。flash に残るが読まれない
+- **起動時に出る Studio の通知は、合計 256 バイトまでしか溜められない。** シリアルポートを開いているプログラムが無いと通知は送信バッファ（`CONFIG_ZMK_STUDIO_RPC_TX_BUF_SIZE=256`）に溜まり、満杯になると送信が戻らず、キー入力ごとキーボードが止まる（`zmk/app/src/studio/rpc.c` の `rpc_tx_buffer_write` が空きを待ち続ける）。マクロとジェスチャーの既定値は通知を出さない
 
 ### エンコーダー割当の仕組み
 
