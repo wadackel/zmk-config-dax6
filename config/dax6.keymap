@@ -1,7 +1,6 @@
 #define ZMK_POINTING_DEFAULT_SCRL_VAL 120
 
 #include <behaviors.dtsi>
-#include <behaviors/runtime-sensor-rotate.dtsi>
 #include <behaviors/dax_macro.dtsi>
 #include <dt-bindings/zmk/bt.h>
 #include <dt-bindings/zmk/input_transform.h>
@@ -48,12 +47,12 @@
     quick-tap-ms = <0>;
 };
 
-// The rsr_* behaviors below are compile-time defaults for the encoders. DYA
-// Studio overrides them per sensor and layer at runtime, and a layer only
-// becomes editable there when its sensor-bindings resolve to one of them.
-// Every variant sets tap-ms to 20, including the &kp ones: &msc ticks every
-// 16 ms, and DYA Studio reuses a layer's current tap-ms when it rebinds, so the
-// binding default of 5 would leave a later &msc silent.
+// The dax_enc_* behaviors below (zmk-dax-modules' dax,behavior-encoder) are the
+// encoders' defaults. A settings app changes the binding of each sensor, layer
+// and direction at runtime, and a layer is editable there only when its
+// sensor-bindings name one of them. Every variant sets tap-ms to 20, including
+// the &kp ones: &msc ticks every 16 ms, and an app may keep a layer's tap-ms
+// when it rebinds, so the binding default of 5 would leave a later &msc silent.
 / {
     // Compile-time defaults for the runtime combos (`dax_combo`). A slot edited or
     // deleted from a settings app keeps that stored value, and the layer filter
@@ -123,40 +122,40 @@
             flavor = "balanced";
         };
 
-        rsr_scroll: rsr_scroll {
-            compatible = "zmk,behavior-runtime-sensor-rotate";
+        dax_enc_scroll: dax_enc_scroll {
+            compatible = "dax,behavior-encoder";
             #sensor-binding-cells = <0>;
             tap-ms = <20>;
             cw-binding = <&msc SCRL_UP>;
             ccw-binding = <&msc SCRL_DOWN>;
         };
 
-        rsr_scroll_rev: rsr_scroll_rev {
-            compatible = "zmk,behavior-runtime-sensor-rotate";
+        dax_enc_scroll_rev: dax_enc_scroll_rev {
+            compatible = "dax,behavior-encoder";
             #sensor-binding-cells = <0>;
             tap-ms = <20>;
             cw-binding = <&msc SCRL_DOWN>;
             ccw-binding = <&msc SCRL_UP>;
         };
 
-        rsr_hscroll: rsr_hscroll {
-            compatible = "zmk,behavior-runtime-sensor-rotate";
+        dax_enc_hscroll: dax_enc_hscroll {
+            compatible = "dax,behavior-encoder";
             #sensor-binding-cells = <0>;
             tap-ms = <20>;
             cw-binding = <&msc SCRL_RIGHT>;
             ccw-binding = <&msc SCRL_LEFT>;
         };
 
-        rsr_vol: rsr_vol {
-            compatible = "zmk,behavior-runtime-sensor-rotate";
+        dax_enc_vol: dax_enc_vol {
+            compatible = "dax,behavior-encoder";
             #sensor-binding-cells = <0>;
             tap-ms = <20>;
             cw-binding = <&kp C_VOL_DN>;
             ccw-binding = <&kp C_VOL_UP>;
         };
 
-        rsr_bri: rsr_bri {
-            compatible = "zmk,behavior-runtime-sensor-rotate";
+        dax_enc_bri: dax_enc_bri {
+            compatible = "dax,behavior-encoder";
             #sensor-binding-cells = <0>;
             tap-ms = <20>;
             cw-binding = <&kp C_BRI_INC>;
@@ -175,7 +174,7 @@
                                  &kp LEFT_ALT   &mt LEFT_GUI LANG2   &mt LEFT_SHIFT SPACE   &esc_lang2_with_layer 4 0                   &lt 3 ENTER     &lt 2 LANG1
             >;
 
-            sensor-bindings = <&rsr_scroll>, <&rsr_scroll_rev>;
+            sensor-bindings = <&dax_enc_scroll>, <&dax_enc_scroll_rev>;
         };
 
         Android {
@@ -186,7 +185,7 @@
                            &trans   &mt HYPER LANG2   &trans   &trans                   &trans   &trans
             >;
 
-            sensor-bindings = <&rsr_scroll>, <&rsr_scroll_rev>;
+            sensor-bindings = <&dax_enc_scroll>, <&dax_enc_scroll_rev>;
         };
 
         Symbol {
@@ -197,7 +196,7 @@
                                            &trans             &trans        &trans          &trans                   &trans   &trans
             >;
 
-            sensor-bindings = <&rsr_hscroll>, <&rsr_hscroll>;
+            sensor-bindings = <&dax_enc_hscroll>, <&dax_enc_hscroll>;
         };
 
         Num {
@@ -208,7 +207,7 @@
                                        &trans         &trans         &trans        &kp PERIOD                   &trans   &trans
             >;
 
-            sensor-bindings = <&rsr_vol>, <&rsr_bri>;
+            sensor-bindings = <&dax_enc_vol>, <&dax_enc_bri>;
         };
 
         Function {
@@ -219,7 +218,7 @@
                                                      &trans   &trans   &trans              &trans                   &trans   &trans
             >;
 
-            sensor-bindings = <&rsr_vol>, <&rsr_bri>;
+            sensor-bindings = <&dax_enc_vol>, <&dax_enc_bri>;
         };
 
         Mouse {
@@ -230,7 +229,7 @@
                            &trans   &trans   &trans   &trans                   &kp RG(RS(LEFT_BRACKET))   &kp RG(RS(RIGHT_BRACKET))
             >;
 
-            sensor-bindings = <&rsr_scroll>, <&rsr_scroll_rev>;
+            sensor-bindings = <&dax_enc_scroll>, <&dax_enc_scroll_rev>;
         };
 
         Scroll {
@@ -241,7 +240,7 @@
                                              &trans                     &trans                     &trans                     &trans                   &kp LC(TAB)   &kp LC(LS(TAB))
             >;
 
-            sensor-bindings = <&rsr_scroll>, <&rsr_scroll_rev>;
+            sensor-bindings = <&dax_enc_scroll>, <&dax_enc_scroll_rev>;
         };
 
         Device {
@@ -252,7 +251,7 @@
                                 &trans   &trans   &trans   &trans                   &trans   &trans
             >;
 
-            sensor-bindings = <&rsr_scroll>, <&rsr_scroll_rev>;
+            sensor-bindings = <&dax_enc_scroll>, <&dax_enc_scroll_rev>;
         };
 
         MacGesture {
@@ -263,7 +262,7 @@
                            &trans   &trans   &trans   &trans                   &trans   &trans
             >;
 
-            sensor-bindings = <&rsr_scroll>, <&rsr_scroll_rev>;
+            sensor-bindings = <&dax_enc_scroll>, <&dax_enc_scroll_rev>;
         };
 
         // Held from the Mouse layer. It changes no key: it exists so that the gesture processor
@@ -276,7 +275,7 @@
                            &trans   &trans   &trans   &trans                   &trans   &trans
             >;
 
-            sensor-bindings = <&rsr_scroll>, <&rsr_scroll_rev>;
+            sensor-bindings = <&dax_enc_scroll>, <&dax_enc_scroll_rev>;
         };
     };
 };

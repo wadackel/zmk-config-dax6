@@ -162,13 +162,13 @@ R central 側に PAW3222 (PixArt) のトラックボールを搭載している�
 - ジェスチャー 1 つにつき behavior は 1 つ。複数の操作はマクロにして割り当てる
 - 調整値（`stroke-size = <300>`、即時発火、`idle-timeout-ms = <150>`、`gesture-cooldown-ms = <200>`）は全部の組で共通
 
-エンコーダの反転と粗さ調整は `trackball_listener` ではなく `&msc_input_listener` (`config/dax6.keymap`) 側の `android_encoder_override` が担当する。`rsr_scroll` 系の behavior は `&msc` に委譲し、`&msc` は自前の input-listener を持つため。`&kp` を割り当てた音量・輝度には影響しない。
+エンコーダの反転と粗さ調整は `trackball_listener` ではなく `&msc_input_listener` (`config/dax6.keymap`) 側の `android_encoder_override` が担当する。`dax_enc_scroll` 系の behavior は `&msc` に委譲し、`&msc` は自前の input-listener を持つため。`&kp` を割り当てた音量・輝度には影響しない。
 
 #### エンコーダが 1 デテントで実際に送る値
 
 `ZMK_POINTING_DEFAULT_SCRL_VAL` は 1 イベントの大きさではなく **速度** で、`&msc` は `speed × trigger_period_ms ÷ 1000` を 1 ティック分の値として出す（`behavior_input_two_axis.c:131-152`、`trigger-period-ms` の既定は 16）。
 
-`120 × 16 ÷ 1000 = 1.92` に対し `rsr_scroll` 系の `tap-ms = 20` ではティックが 1 回しか回らず、しかもリリース時に端数が捨てられる（`:139-142` の `speed == 0` で `remainder = 0`）。結果 **1 トリガあたり `REL_WHEEL = 1`、`triggers-per-rotation = 40` なので 1 デテントあたり約 1.67**。
+`120 × 16 ÷ 1000 = 1.92` に対し `dax_enc_scroll` 系の `tap-ms = 20` ではティックが 1 回しか回らず、しかもリリース時に端数が捨てられる（`:139-142` の `speed == 0` で `remainder = 0`）。結果 **1 トリガあたり `REL_WHEEL = 1`、`triggers-per-rotation = 40` なので 1 デテントあたり約 1.67**。
 
 Android 側はホストが 1 notch を固定量（`ViewConfiguration` の scroll factor、典型 64dp）で一括スクロールし加速もしないため、1.67 notch/デテントは「64dp と 128dp が交互」に見える。macOS は OS 側のスムージングでこれが隠れる。
 
@@ -211,15 +211,15 @@ CPI は DTS の `res-cpi` プロパティで設定 (`res-cpi = <1000>` で PMW36
 
 ```c
 // config/dax6.keymap
-rsr_scroll: rsr_scroll {
-  compatible = "zmk,behavior-runtime-sensor-rotate";
+dax_enc_scroll: dax_enc_scroll {
+  compatible = "dax,behavior-encoder";
   tap-ms = <20>;  // ✅ OK: 16ms以上
   // tap-ms = <10>;  // ❌ NG: スクロールが一切動かなくなる
   // tap-ms を書かない  // ❌ NG: binding の既定値は 5
 };
 ```
 
-rsr の behavior は `&kp` を割り当てたもの（`rsr_vol` / `rsr_bri`）も含め、すべて `tap-ms = <20>` にする。DYA Studio は割当を変えるとき、そのレイヤーの現在の `tap_ms` を引き継いで送るので、既定 5 のままのレイヤーに後から `&msc` を割り当てると無反応になる。DYA Studio 側で `&msc` の tap を 16 未満に下げた場合も同じ。
+dax のエンコーダー behavior は `&kp` を割り当てたもの（`dax_enc_vol` / `dax_enc_bri`）も含め、すべて `tap-ms = <20>` にする。daxial は割当を変えるとき、その方向の今の tap を引き継ぐので、既定 5 のままのレイヤーに後から `&msc` を割り当てると無反応になる。daxial で `&msc` の tap を 16 未満に下げた場合も同じ。
 
 **理由:**
 - `&msc`（スクロール）の内部イベント周期は**16ms**
@@ -307,7 +307,7 @@ dax6 はこの方法を使っている。BLE profile の切り替えに連動し
 - ボード名は `xiao_ble//zmk`（v0.3 系の `seeeduino_xiao_ble` から変わった）
 - fork は upstream main から遅れる。2026-10-11 時点で 59 コミット差があり、split の入力レポートのデッドロック修正（upstream #3110）などが未取り込み
 - `main+dya` は hold-tap・tap-dance・`behavior_input_two_axis.c`・activity・keymap まで変更している。既存の挙動への影響が読めないので使わない
-- モジュールを足すときは、そのモジュールの CI がどのブランチを対象にしているかを `west/west-dependency/west-test-dependency.yml` で確かめる。`zmk-behavior-runtime-sensor-rotate` の CI は v0.3 系だけが対象で、main 系で動くことは手元のビルドでしか確かめていない
+- モジュールを足すときは、そのモジュールの CI がどのブランチを対象にしているかを `west/west-dependency/west-test-dependency.yml` で確かめる
 
 ### Nix のビルド環境で詰まりやすい点
 
@@ -330,7 +330,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 **チェック項目:**
 1. `tap-ms`が16ms以上か？
    - → 20msに設定
-   - keymap が 20 でも、DYA Studio で保存した割当の tap が 16 未満だとそちらが優先される
+   - keymap が 20 でも、daxial で保存した割当の tap が 16 未満だとそちらが優先される
 2. `SCRL_VAL`が大きすぎないか？
    - → macOSでは120以上推奨
 3. ファームウェアは左右両方フラッシュしたか？
@@ -355,7 +355,7 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 | 機能 | 仕組み（custom subsystem の識別子） |
 |---|---|
 | キー割当・レイヤー名 | 公式 ZMK Studio の RPC |
-| エンコーダーの回転割当（レイヤー別・方向別） | `zmk-behavior-runtime-sensor-rotate`（`cormoran_rsr`） |
+| エンコーダーの回転割当（レイヤー別・方向別） | `zmk-dax-modules` の `src/encoder/`（`dax_encoder`、値は `dax_settings` 経由）。DYA Studio からは編集できない |
 | トラックボールの向き・倍率、Scroll レイヤーの向き・粗さ | `zmk-dax-modules` の `src/pointer/`（`dax_pointer`、値は `dax_settings` 経由）。DYA Studio からは編集できない |
 | combo | `zmk-dax-modules` の `src/combo/`（`dax_combo`）。DYA Studio からは編集できない |
 | マクロ | `zmk-dax-modules` の `src/macro/`（`dax_macro`）。DYA Studio からは編集できない |
@@ -367,8 +367,8 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 共通の約束事:
 
 - **keymap / overlay に書いた値は既定値で、アプリで保存した値が優先される。** 既定値を書き換えてフラッシュしても、保存済みの項目には反映されない。既定値に戻すにはアプリの reset か `settings_reset.uf2`（BLE のボンドも消える）
-- 設定の置き場は `zmk-dax-modules` の保存層（Zephyr の settings の `dax/<owner>/<key>`）。Save まで RAM にあり、Discard で戻る。`zmk-behavior-runtime-sensor-rotate` だけは Zephyr の settings に直接、すぐに書く
-- cormoran の `zmk-feature-custom-settings` と `zmk-module-runtime-input-processor` で保存した値は引き継いでいない。flash に残るが読まれない
+- 設定の置き場は `zmk-dax-modules` の保存層（Zephyr の settings の `dax/<owner>/<key>`）。Save まで RAM にあり、Discard で戻る
+- cormoran の `zmk-feature-custom-settings`、`zmk-module-runtime-input-processor`、`zmk-behavior-runtime-sensor-rotate` で保存した値は引き継いでいない。flash に残るが読まれない
 
 ### トラックボールの実行時調整
 
@@ -394,13 +394,14 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 
 ### エンコーダー割当の仕組み
 
-全レイヤーの `sensor-bindings` は `zmk,behavior-runtime-sensor-rotate` の behavior（`rsr_scroll` / `rsr_scroll_rev` / `rsr_hscroll` / `rsr_vol` / `rsr_bri`）を指す。各 behavior の `cw-binding` / `ccw-binding` がコンパイル時の既定値で、アプリで保存した割当があればそちらが優先される。
+全レイヤーの `sensor-bindings` は zmk-dax-modules の `dax,behavior-encoder`（`dax_enc_scroll` / `dax_enc_scroll_rev` / `dax_enc_hscroll` / `dax_enc_vol` / `dax_enc_bri`）を指す。各 behavior の `cw-binding` / `ccw-binding` と `tap-ms` が既定値で、daxial で書いた割当（センサー × layer id × 方向）があればそちらが優先される。
 
-- **書き込みは即時に flash へ保存される。** 試してからキャンセルする操作はない
-- **保存済みの割当は keymap より強い。** keymap の `cw-binding` を書き換えてフラッシュしても、DYA Studio で一度保存したレイヤーには反映されない。既定値に戻すには `settings_reset.uf2` を書き込む（BLE のボンドも消える）
-- **`sensor-bindings` を rsr 以外の behavior にしたレイヤーは DYA Studio から編集できない。** runtime 設定は、そのレイヤーの sensor-binding が rsr に解決されるときだけ参照される
+- **割当も Save まで RAM にある。** Discard で戻り、Reset で既定値に戻る（Reset も Save まで RAM）
+- **保存済みの割当は keymap より強い。** keymap の `cw-binding` を書き換えてフラッシュしても、daxial で保存した方向には反映されない。戻すには daxial で Reset して Save する
+- **`sensor-bindings` を `dax_enc_*` 以外の behavior にしたレイヤーは daxial から編集できない。** そのレイヤーの割当は書き込みが断られる
+- スロットは layer id で数える。Studio でレイヤーを並べ替えても、割当はその層についていく
 - 回転方向ごとの既定値を keymap で変えるときは、レイヤーの `sensor-bindings` ではなく behavior ノードを編集する。ノードは複数のレイヤーで共有されている
-- `triggers-per-rotation` はコンパイル時のまま。`&msc_input_listener` の Android 反転と 3/5 倍率は `&msc` の下流なので、DYA Studio で割当を変えても効き続ける
+- `triggers-per-rotation` はコンパイル時のまま。`&msc_input_listener` の Android 反転と 3/5 倍率は `&msc` の下流なので、daxial で割当を変えても効き続ける
 
 ### 接続
 
