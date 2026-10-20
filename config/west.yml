@@ -23,6 +23,6 @@ manifest:
       revision: e6b467792a1dabef8cfa5c9fd26bfefc9c16662b  # main as of 2026-07-09
     - name: zmk-dax-modules
       remote: wadackel
-      revision: d7701975263d77df689055065350c906fa504386  # feat/dax-encoder as of 2026-10-20, until it merges
+      revision: 4751585588c33bc5e95b9e4ba854920d4ae7997d  # main as of 2026-10-20
   self:
     path: config
