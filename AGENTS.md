@@ -356,24 +356,25 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 |---|---|
 | キー割当・レイヤー名 | 公式 ZMK Studio の RPC |
 | エンコーダーの回転割当（レイヤー別・方向別） | `zmk-behavior-runtime-sensor-rotate`（`cormoran_rsr`） |
-| トラックボールの向き・倍率、Scroll レイヤーの向き・粗さ | `zmk-module-runtime-input-processor`（`cormoran_rip`） |
-| combo | `zmk-dax-modules` の `src/combo/`（`dax_combo`、値は custom-settings 経由）。DYA Studio からは編集できない |
+| トラックボールの向き・倍率、Scroll レイヤーの向き・粗さ | `zmk-dax-modules` の `src/pointer/`（`dax_pointer`、値は `dax_settings` 経由）。DYA Studio からは編集できない |
+| combo | `zmk-dax-modules` の `src/combo/`（`dax_combo`）。DYA Studio からは編集できない |
 | マクロ | `zmk-dax-modules` の `src/macro/`（`dax_macro`）。DYA Studio からは編集できない |
-| マウスジェスチャー（調整値、組のレイヤー、パターンと割当） | `zmk-dax-modules`（`dax_gesture`、値は custom-settings 経由） |
-| PAW3222 の CPI | `zmk-dax-modules` の `src/trackball_settings.c`（`dax_trackball`、値は custom-settings 経由） |
+| マウスジェスチャー（調整値、組のレイヤー、パターンと割当） | `zmk-dax-modules`（`dax_gesture`、値は `dax_settings` 経由） |
+| PAW3222 の CPI | `zmk-dax-modules` の `src/trackball_settings.c`（`dax_trackball`、値は `dax_settings` 経由） |
 
 実行時に変えられないもの: エンコーダーの `triggers-per-rotation`、hold-tap のタイミング。
 
 共通の約束事:
 
 - **keymap / overlay に書いた値は既定値で、アプリで保存した値が優先される。** 既定値を書き換えてフラッシュしても、保存済みの項目には反映されない。既定値に戻すにはアプリの reset か `settings_reset.uf2`（BLE のボンドも消える）
-- 設定の置き場は `zmk-feature-custom-settings`（`cormoran_custom_settings`）。`zmk-behavior-runtime-sensor-rotate` だけは Zephyr の settings に直接書く
+- 設定の置き場は `zmk-dax-modules` の保存層（Zephyr の settings の `dax/<owner>/<key>`）。Save まで RAM にあり、Discard で戻る。`zmk-behavior-runtime-sensor-rotate` だけは Zephyr の settings に直接、すぐに書く
+- cormoran の `zmk-feature-custom-settings` と `zmk-module-runtime-input-processor` で保存した値は引き継いでいない。flash に残るが読まれない
 
 ### トラックボールの実行時調整
 
-`dax6_R.overlay` の `tb_pointer` と `tb_scroll` が、固定だった `zip_xy_transform` と `zip_scroll_transform` + `zip_scroll_scaler` を置き換えている。
+`trackball_processors.dtsi` の `tb_pointer` と `tb_scroll`（`dax,input-processor-pointer`）が、固定だった `zip_xy_transform` と `zip_scroll_transform` + `zip_scroll_scaler` を置き換えている。
 
-- `tb_pointer` は反転を「入替の前の軸」で判定する。`xy-swap-enabled; x-invert;` が、以前の `zip_xy_transform (XY_SWAP | Y_INVERT)` と同じ結果になる
+- `tb_pointer` は反転を「入替の前の軸」で判定する。`xy-swap; x-invert;` が、以前の `zip_xy_transform (XY_SWAP | Y_INVERT)` と同じ結果になる
 - `tb_pointer` は Scroll レイヤーのチェーンでも先頭にいるので、その倍率はスクロールにも掛かる
 - エンコーダーのスクロール（`&msc_input_listener` 側の反転と 3/5 倍率）は固定のまま
 
