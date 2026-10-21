@@ -45,6 +45,7 @@ ZMK_TESTS_RESYNC=1 just test    # west update のあと
 | テスト | 確かめていること |
 |---|---|
 | `esc-lang2` | 親指キーの tap が ESC → LANG2 を出し、hold がレイヤーを切り替える（tap はスロット 0 のマクロの既定値を `&dax_macro` で再生する） |
+| `kana-tab` | cmd の親指キー（`&mt`）を押してすぐ、または押し続けてからかなキーを叩くと cmd+TAB になり、HID レポートで cmd が TAB に掛かったまま。shift も押さえると cmd+shift+TAB。かなキーだけなら LANG1、押し続けると Symbol |
 | `combos` | 実行時 combo の既定値が発火する。`layers = <0 1>` の combo は上のレイヤーが有効でも発火し、`<0>` だけのものは発火しない |
 | `trackball-pointer` / `-fixed` | `tb_pointer` の出力が、置き換え前の `zip_xy_transform (XY_SWAP \| Y_INVERT)` と同じ |
 | `gestures` | `config/gestures.dtsi` の組が、保持しているレイヤーに応じて切り替わる（Gesture → 戻る、MacGesture → Spotlight、Gesture + Android → Android の戻る、何も保持しない → カーソル移動） |
@@ -377,6 +378,14 @@ invert / scroll-layers は **driver Kconfig ではなく ZMK input-processor** �
 - `tb_pointer` は反転を「入替の前の軸」で判定する。`xy-swap; x-invert;` が、以前の `zip_xy_transform (XY_SWAP | Y_INVERT)` と同じ結果になる
 - `tb_pointer` は Scroll レイヤーのチェーンでも先頭にいるので、その倍率はスクロールにも掛かる
 - エンコーダーのスクロール（`&msc_input_listener` 側の反転と 3/5 倍率）は固定のまま
+
+### cmd+tab
+
+- cmd の親指キーを押さえたまま、かなキー（右親指の外側、`&lt_kana_tab 2 0`）を叩くと TAB になる。押さえた cmd は TAB に掛かったまま送るので、叩くたびにアプリの候補が進む。逆送りは shift も押さえる。定義は `config/kana_tab.dtsi` で、`tests/kana-tab` も同じファイルを読む
+  - `kana_tab` は mod-morph。cmd が押されていれば TAB、いなければ LANG1。`keep-mods` が無いと cmd が外れて素の TAB になる
+  - `lt_kana_tab` は tap が `kana_tab`、hold が `&mo` の hold-tap。tap 側の引数は使わない。判定の設定は `&lt` と同じ
+  - daxial には「Layer-Kana」の名前で出る。daxial でかなキーを保存している場合は、keymap の既定値は効かないので daxial で割り当て直す
+  - combo の `er_tab`（E+R）も残している
 
 ### combo とマクロ
 

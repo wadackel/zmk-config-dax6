@@ -1,0 +1,64 @@
+#include "../common.dtsi"
+#include "../../config/kana_tab.dtsi"
+
+// The Cmd thumb key as config/dax6.keymap defines it: &mt LEFT_GUI LANG2 with the same &mt settings.
+&mt {
+    quick-tap-ms = <0>;
+    tapping-term-ms = <160>;
+    flavor = "balanced";
+};
+
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer {
+            bindings = <&mt LEFT_GUI LANG2 &lt_kana_tab 1 0 &kp A &kp LEFT_SHIFT>;
+        };
+        symbol_layer {
+            bindings = <&trans &trans &kp B &trans>;
+        };
+    };
+};
+
+// Each delay is the gap to the following event (the mock also waits the first one before starting).
+//   1. kana alone: LANG1
+//   2. Cmd pressed and kana tapped inside Cmd's tapping term: Cmd+Tab, no LANG1 or LANG2
+//   3. Cmd held past its tapping term, kana tapped three times: Cmd+Tab three times
+//   4. Cmd and Shift held, kana tapped: Cmd+Shift+Tab
+//   5. Cmd alone: LANG2
+//   6. kana held with A under it: B from the symbol layer
+&kscan {
+    events = <
+        ZMK_MOCK_PRESS(0,1,50)
+        ZMK_MOCK_RELEASE(0,1,300)
+
+        ZMK_MOCK_PRESS(0,0,30)
+        ZMK_MOCK_PRESS(0,1,30)
+        ZMK_MOCK_RELEASE(0,1,30)
+        ZMK_MOCK_RELEASE(0,0,300)
+
+        ZMK_MOCK_PRESS(0,0,250)
+        ZMK_MOCK_PRESS(0,1,40)
+        ZMK_MOCK_RELEASE(0,1,80)
+        ZMK_MOCK_PRESS(0,1,40)
+        ZMK_MOCK_RELEASE(0,1,80)
+        ZMK_MOCK_PRESS(0,1,40)
+        ZMK_MOCK_RELEASE(0,1,80)
+        ZMK_MOCK_RELEASE(0,0,300)
+
+        ZMK_MOCK_PRESS(0,0,250)
+        ZMK_MOCK_PRESS(0,3,50)
+        ZMK_MOCK_PRESS(0,1,40)
+        ZMK_MOCK_RELEASE(0,1,50)
+        ZMK_MOCK_RELEASE(0,3,50)
+        ZMK_MOCK_RELEASE(0,0,300)
+
+        ZMK_MOCK_PRESS(0,0,50)
+        ZMK_MOCK_RELEASE(0,0,300)
+
+        ZMK_MOCK_PRESS(0,1,250)
+        ZMK_MOCK_PRESS(0,2,50)
+        ZMK_MOCK_RELEASE(0,2,50)
+        ZMK_MOCK_RELEASE(0,1,300)
+    >;
+};

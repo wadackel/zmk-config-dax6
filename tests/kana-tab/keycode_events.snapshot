@@ -1,0 +1,67 @@
+pressed: usage_page 0x07 keycode 0x90 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x00
+released: usage_page 0x07 keycode 0x90 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x00
+Modifiers set to 0x00
+pressed: usage_page 0x07 keycode 0xE3 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+Modifiers set to 0x08
+Modifiers set to 0x08
+pressed: usage_page 0x07 keycode 0x2B implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+released: usage_page 0x07 keycode 0x2B implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+Modifiers set to 0x08
+released: usage_page 0x07 keycode 0xE3 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x00
+Modifiers set to 0x00
+pressed: usage_page 0x07 keycode 0xE3 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+Modifiers set to 0x08
+Modifiers set to 0x08
+pressed: usage_page 0x07 keycode 0x2B implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+released: usage_page 0x07 keycode 0x2B implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+Modifiers set to 0x08
+Modifiers set to 0x08
+pressed: usage_page 0x07 keycode 0x2B implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+released: usage_page 0x07 keycode 0x2B implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+Modifiers set to 0x08
+Modifiers set to 0x08
+pressed: usage_page 0x07 keycode 0x2B implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+released: usage_page 0x07 keycode 0x2B implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+Modifiers set to 0x08
+released: usage_page 0x07 keycode 0xE3 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x00
+Modifiers set to 0x00
+pressed: usage_page 0x07 keycode 0xE3 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+Modifiers set to 0x08
+pressed: usage_page 0x07 keycode 0xE1 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x0A
+Modifiers set to 0x0A
+Modifiers set to 0x0A
+pressed: usage_page 0x07 keycode 0x2B implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x0A
+released: usage_page 0x07 keycode 0x2B implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x0A
+Modifiers set to 0x0A
+released: usage_page 0x07 keycode 0xE1 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x08
+Modifiers set to 0x08
+released: usage_page 0x07 keycode 0xE3 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x00
+Modifiers set to 0x00
+pressed: usage_page 0x07 keycode 0x91 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x00
+released: usage_page 0x07 keycode 0x91 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x00
+pressed: usage_page 0x07 keycode 0x05 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x00
+released: usage_page 0x07 keycode 0x05 implicit_mods 0x00 explicit_mods 0x00
+Modifiers set to 0x00

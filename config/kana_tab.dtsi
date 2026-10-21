@@ -1,0 +1,26 @@
+// Read by config/dax6.keymap and by tests/kana-tab, so the test runs these definitions.
+/ {
+    behaviors {
+        // With Cmd held, the kana key becomes Tab, so holding Cmd and tapping it
+        // walks the macOS app switcher. Cmd+kana does nothing on macOS.
+        kana_tab: kana_tab {
+            compatible = "zmk,behavior-mod-morph";
+            display-name = "Kana / Tab";
+            #binding-cells = <0>;
+            bindings = <&kp LANG1>, <&kp TAB>;
+            mods = <(MOD_LGUI|MOD_RGUI)>;
+            keep-mods = <(MOD_LGUI|MOD_RGUI)>;
+        };
+
+        // The tap parameter is unused: kana_tab takes none.
+        lt_kana_tab: lt_kana_tab {
+            compatible = "zmk,behavior-hold-tap";
+            display-name = "Layer-Kana";
+            bindings = <&mo>, <&kana_tab>;
+            #binding-cells = <2>;
+            tapping-term-ms = <160>;
+            quick-tap-ms = <0>;
+            flavor = "balanced";
+        };
+    };
+};
